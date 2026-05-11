@@ -40,6 +40,8 @@ essensplan.db-wal
 
 # Claude Code lokale Einstellungen
 .claude/
+CLAUDE.md
+AGENTS.md
 
 # vercel
 .vercel
