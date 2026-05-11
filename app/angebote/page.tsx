@@ -15,8 +15,26 @@ type Offer = {
   validTo: string;
 };
 
+type RawOffer = {
+  id: number;
+  product?: { name?: string };
+  description?: string;
+  price?: number;
+  oldPrice?: number | null;
+  advertisers?: { name?: string }[];
+  categories?: { name?: string }[];
+  validityDates?: { from?: string; to?: string }[];
+};
+
 const CLIENT_KEY = process.env.MARKTGURU_CLIENT_KEY ?? '';
 const API_KEY = process.env.MARKTGURU_API_KEY ?? '';
+
+// Breite Suchbegriffe damit alle Supermärkte in den Ergebnissen auftauchen.
+// Die ungefilterte /offers-API liefert nur REWE – /offers/search gibt alle Shops.
+const SEARCH_TERMS = [
+  'Obst', 'Gemüse', 'Fleisch', 'Fisch', 'Milch', 'Käse',
+  'Brot', 'Getränke', 'Joghurt', 'Tiefkühl',
+];
 
 const SHOP_KEYWORDS: Record<string, string> = {
   'Aldi Süd': 'aldi süd', 'Aldi Nord': 'aldi nord', 'Rewe': 'rewe',
@@ -31,6 +49,16 @@ function shopAllowed(shopName: string, allowedShops: string[]): boolean {
     const keyword = SHOP_KEYWORDS[s] ?? s.toLowerCase();
     return lower.includes(keyword);
   });
+}
+
+async function searchOffers(zip: string, query: string): Promise<RawOffer[]> {
+  const res = await fetch(
+    `https://api.marktguru.de/api/v1/offers/search?as=web&limit=50&zipCode=${zip}&q=${encodeURIComponent(query)}`,
+    { headers: { 'x-clientkey': CLIENT_KEY, 'x-apikey': API_KEY }, cache: 'no-store' }
+  );
+  if (!res.ok) return [];
+  const data = await res.json() as { results?: RawOffer[] };
+  return data.results ?? [];
 }
 
 export default async function AngebotePage() {
@@ -52,37 +80,32 @@ export default async function AngebotePage() {
   let error: string | undefined;
 
   try {
-    const res = await fetch(
-      `https://api.marktguru.de/api/v1/offers?as=web&limit=300&zipCode=${primaryZip}`,
-      { headers: { 'x-clientkey': CLIENT_KEY, 'x-apikey': API_KEY }, cache: 'no-store' }
+    // Alle Suchbegriffe parallel abfragen
+    const results = await Promise.all(
+      SEARCH_TERMS.map((term) => searchOffers(primaryZip, term))
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    type RawOffer = {
-      id: number;
-      product?: { name?: string };
-      description?: string;
-      price?: number;
-      oldPrice?: number | null;
-      advertisers?: { name?: string }[];
-      categories?: { name?: string }[];
-      validityDates?: { from?: string; to?: string }[];
-    };
-
-    const data = await res.json() as { results: RawOffer[] };
-    offers = data.results
-      .filter((r) => shopAllowed(r.advertisers?.[0]?.name ?? '', allowedShops))
-      .map((r) => ({
-        id: r.id,
-        name: r.product?.name ?? r.description ?? '',
-        description: r.description ?? '',
-        price: r.price ?? 0,
-        oldPrice: r.oldPrice ?? null,
-        shop: r.advertisers?.[0]?.name ?? 'Unbekannt',
-        category: r.categories?.[0]?.name ?? 'Sonstiges',
-        validFrom: r.validityDates?.[0]?.from ?? '',
-        validTo: r.validityDates?.[0]?.to ?? '',
-      }));
+    // Deduplizieren nach ID, Shop-Filter anwenden
+    const seen = new Set<number>();
+    for (const batch of results) {
+      for (const r of batch) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        const shop = r.advertisers?.[0]?.name ?? '';
+        if (!shopAllowed(shop, allowedShops)) continue;
+        offers.push({
+          id: r.id,
+          name: r.product?.name ?? r.description ?? '',
+          description: r.description ?? '',
+          price: r.price ?? 0,
+          oldPrice: r.oldPrice ?? null,
+          shop: shop || 'Unbekannt',
+          category: r.categories?.[0]?.name ?? 'Sonstiges',
+          validFrom: r.validityDates?.[0]?.from ?? '',
+          validTo: r.validityDates?.[0]?.to ?? '',
+        });
+      }
+    }
   } catch {
     error = 'Angebote konnten nicht geladen werden';
   }
