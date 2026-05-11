@@ -5,6 +5,14 @@ import { parseSteps } from '@/lib/steps';
 import { notFound } from 'next/navigation';
 import RecipeDetailClient from './RecipeDetailClient';
 
+function getMondayISO(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
+
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -20,8 +28,8 @@ export default async function RecipeDetailPage({ params }: Props) {
   if (!recipe) notFound();
 
   const weekplanRow = plain(db.prepare(
-    "SELECT * FROM weekplan WHERE recipe_id = ? AND status IN ('confirmed', 'suggestion') ORDER BY id DESC LIMIT 1"
-  ).get(Number(id))) as { id: number; status: string; score: number | null; offers: string | null } | undefined;
+    "SELECT * FROM weekplan WHERE recipe_id = ? AND week_start = ? AND status IN ('confirmed', 'suggestion') ORDER BY id DESC LIMIT 1"
+  ).get(Number(id), getMondayISO())) as { id: number; status: string; score: number | null; offers: string | null } | undefined;
 
   const settings = plain(db.prepare('SELECT shopping_date FROM settings WHERE id = 1').get()) as { shopping_date: string | null } | undefined;
   const shoppingDate = settings?.shopping_date ?? new Date().toISOString().split('T')[0];
