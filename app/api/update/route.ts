@@ -20,9 +20,10 @@ export async function GET() {
   }
 
   try {
+    // GitHub API statt raw CDN — CDN ignoriert Query-Parameter beim Cachen
     const res = await fetch(
-      `https://raw.githubusercontent.com/${repo}/main/package.json?t=${Date.now()}`,
-      { cache: 'no-store' }
+      `https://api.github.com/repos/${repo}/contents/package.json`,
+      { cache: 'no-store', headers: { 'Accept': 'application/vnd.github.raw+json' } }
     );
     if (!res.ok) throw new Error(`GitHub antwortet nicht (HTTP ${res.status})`);
 
