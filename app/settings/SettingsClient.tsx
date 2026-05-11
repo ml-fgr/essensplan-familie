@@ -82,9 +82,14 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
 
   async function changePassword() {
     setPwMsg('');
-    const res = await fetch('/api/settings/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }) });
-    if (res.ok) { setPwMsg('Passwort erfolgreich geändert.'); setOldPw(''); setNewPw(''); }
-    else setPwMsg('Altes Passwort falsch.');
+    try {
+      const res = await fetch('/api/settings/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }) });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (res.ok) { setPwMsg('Passwort erfolgreich geändert.'); setOldPw(''); setNewPw(''); }
+      else setPwMsg(data.error || 'Fehler beim Ändern des Passworts.');
+    } catch {
+      setPwMsg('Netzwerkfehler — bitte erneut versuchen.');
+    }
   }
 
   async function logout() {
