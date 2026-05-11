@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Familien-Essensplaner",
-  description: "Wöchentlicher Essensplan für die Familie",
+  title: 'Familien-Essensplaner',
+  description: 'Wöchentlicher Essensplan für die Familie',
+  appleWebApp: {
+    capable: true,
+    title: 'Essensplan',
+    statusBarStyle: 'default',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
