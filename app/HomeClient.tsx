@@ -376,7 +376,6 @@ function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit,
         <div
           ref={rowRef}
           style={{
-            opacity: 0.35,
             display: 'flex', alignItems: 'center', padding: '13px 12px 13px 16px', gap: 10,
             background: 'var(--bg-elevated)',
             transform: `translateX(${dragX}px)`,
@@ -386,14 +385,14 @@ function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit,
           onMouseDown={onMouseDown}
           onClick={(e) => { if (!isDragging.current && dragX === 0) onAdd(e); }}
         >
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, opacity: 0.35 }}>
             <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.name}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ingredients.length} Zutaten — tippen zum Hinzufügen</div>
           </div>
           <button
             onClick={onToggle}
             title="Aktionen"
-            style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', borderRadius: 8, flexShrink: 0, opacity: 1 }}
+            style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', borderRadius: 8, flexShrink: 0, opacity: 0.35 }}
           >
             ⋯
           </button>
