@@ -85,6 +85,9 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 8px' }}>
         <h1 style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>Diese Woche</h1>
         <div style={{ display: 'flex', gap: 8 }}>
+          <a href="/angebote" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', background: 'var(--chip)', borderRadius: 999, padding: '6px 12px', fontSize: 13, fontWeight: 500, color: 'var(--fg)', textDecoration: 'none' }}>
+            🏷️
+          </a>
           <a href="/shopping" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', background: 'var(--chip)', borderRadius: 999, padding: '6px 12px', fontSize: 13, fontWeight: 500, color: 'var(--fg)', textDecoration: 'none' }}>
             🛒
           </a>
