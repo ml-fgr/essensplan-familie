@@ -50,7 +50,9 @@ export async function POST() {
     const steps: string[] = [];
 
     steps.push('▶ git pull...');
-    const gitOut = run('git pull').trim();
+    const gitOut = execSync(`git -c "safe.directory=${appDir}" pull`, {
+      cwd: appDir, encoding: 'utf8', timeout: 60_000, stdio: 'pipe',
+    }).trim();
     steps.push(gitOut || 'Bereits aktuell.');
 
     steps.push('▶ npm install...');
