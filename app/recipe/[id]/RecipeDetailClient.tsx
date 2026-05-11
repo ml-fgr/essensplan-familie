@@ -6,14 +6,14 @@ interface Props {
   weekplanId: number | null;
   status: string | null;
   score: number | null;
-  offers: { ingredient: string; shop: string; label: string }[];
+  offers: { ingredient: string; shop: string; label: string; expired?: boolean }[];
 }
 
 export default function RecipeDetailClient({ recipe, weekplanId, status, score, offers }: Props) {
   const { steps } = recipe;
   const router = useRouter();
 
-  const offerMap: Record<string, { shop: string; label: string }> = {};
+  const offerMap: Record<string, { shop: string; label: string; expired?: boolean }> = {};
   for (const o of offers) offerMap[o.ingredient.toLowerCase()] = o;
 
   async function removeFromPlan() {
@@ -24,7 +24,10 @@ export default function RecipeDetailClient({ recipe, weekplanId, status, score, 
   }
 
   const inPlan = status === 'confirmed' || status === 'suggestion';
-  const offerCount = recipe.ingredients.filter((ing) => offerMap[ing.toLowerCase()]).length;
+  const offerCount = recipe.ingredients.filter((ing) => {
+    const o = offerMap[ing.toLowerCase()];
+    return o && !o.expired;
+  }).length;
   const pct = recipe.ingredients.length > 0 ? Math.round((offerCount / recipe.ingredients.length) * 100) : 0;
 
   return (
@@ -58,10 +61,16 @@ export default function RecipeDetailClient({ recipe, weekplanId, status, score, 
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: i < recipe.ingredients.length - 1 ? '0.5px solid rgba(31,42,34,0.08)' : 'none', gap: 10 }}>
                 <span style={{ flex: 1 }}>{ing}</span>
-                {offer && (
+                {offer && !offer.expired && (
                   <div style={{ textAlign: 'right' }}>
                     <span className="badge" style={{ display: 'block', marginBottom: 2 }}>Angebot</span>
                     <span style={{ fontSize: 11, color: 'var(--muted)' }}>{offer.shop}</span>
+                  </div>
+                )}
+                {offer && offer.expired && (
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: 11, background: 'rgba(198,79,58,0.1)', color: 'var(--danger)', borderRadius: 6, padding: '2px 7px', display: 'block', marginBottom: 2 }}>Abgelaufen</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'line-through' }}>{offer.shop}</span>
                   </div>
                 )}
               </div>

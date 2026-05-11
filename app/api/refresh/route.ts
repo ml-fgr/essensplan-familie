@@ -46,7 +46,7 @@ function isValidOnDate(
   return true;
 }
 
-async function fetchOffers(zipCode: string, query: string, allowedShops: string[], shoppingDate: string): Promise<{ shop: string; label: string }[]> {
+async function fetchOffers(zipCode: string, query: string, allowedShops: string[], shoppingDate: string): Promise<{ shop: string; label: string; validFrom: string; validTo: string }[]> {
   try {
     const url = `https://api.marktguru.de/api/v1/offers/search?as=web&limit=50&zipCode=${encodeURIComponent(zipCode)}&q=${encodeURIComponent(query)}`;
     const res = await fetch(url, {
@@ -65,6 +65,8 @@ async function fetchOffers(zipCode: string, query: string, allowedShops: string[
       .map((r) => ({
         shop: r.advertisers?.[0]?.name ?? 'Unbekannt',
         label: r.description ?? query,
+        validFrom: r.validityDates?.[0]?.from?.slice(0, 10) ?? '',
+        validTo: r.validityDates?.[0]?.to?.slice(0, 10) ?? '',
       }));
   } catch {
     return [];
@@ -97,11 +99,11 @@ export async function POST() {
   const recipes = db.prepare('SELECT * FROM recipes').all() as { id: number; name: string; ingredients: string }[];
   if (recipes.length === 0) return NextResponse.json({ error: 'Keine Rezepte vorhanden' }, { status: 400 });
 
-  const scored: { recipe: (typeof recipes)[0]; score: number; finalScore: number; offers: { ingredient: string; shop: string; label: string }[] }[] = [];
+  const scored: { recipe: (typeof recipes)[0]; score: number; finalScore: number; offers: { ingredient: string; shop: string; label: string; validFrom: string; validTo: string }[] }[] = [];
 
   for (const recipe of recipes) {
     const ingredients: string[] = JSON.parse(recipe.ingredients);
-    const offerResults: { ingredient: string; shop: string; label: string }[] = [];
+    const offerResults: { ingredient: string; shop: string; label: string; validFrom: string; validTo: string }[] = [];
     let hits = 0;
 
     await Promise.all(
@@ -109,7 +111,7 @@ export async function POST() {
         const results = await fetchOffers(primaryZip, ing, allowedShops, shoppingDate);
         if (results.length > 0) {
           hits++;
-          offerResults.push({ ingredient: ing, shop: results[0].shop, label: results[0].label });
+          offerResults.push({ ingredient: ing, shop: results[0].shop, label: results[0].label, validFrom: results[0].validFrom, validTo: results[0].validTo });
         }
       })
     );

@@ -23,8 +23,20 @@ export default async function RecipeDetailPage({ params }: Props) {
     "SELECT * FROM weekplan WHERE recipe_id = ? AND status IN ('confirmed', 'suggestion') ORDER BY id DESC LIMIT 1"
   ).get(Number(id))) as { id: number; status: string; score: number | null; offers: string | null } | undefined;
 
+  const settings = plain(db.prepare('SELECT shopping_date FROM settings WHERE id = 1').get()) as { shopping_date: string | null } | undefined;
+  const shoppingDate = settings?.shopping_date ?? new Date().toISOString().split('T')[0];
+
   const ingredients: string[] = JSON.parse(recipe.ingredients);
-  const offers: { ingredient: string; shop: string; label: string }[] = weekplanRow?.offers ? JSON.parse(weekplanRow.offers) : [];
+  const rawOffers: { ingredient: string; shop: string; label: string; validFrom?: string; validTo?: string }[] = weekplanRow?.offers ? JSON.parse(weekplanRow.offers) : [];
+
+  const offers = rawOffers.map((o) => {
+    let expired = false;
+    if (o.validFrom || o.validTo) {
+      if (o.validFrom && shoppingDate < o.validFrom) expired = true;
+      if (o.validTo && shoppingDate > o.validTo) expired = true;
+    }
+    return { ...o, expired };
+  });
 
   return (
     <RecipeDetailClient
