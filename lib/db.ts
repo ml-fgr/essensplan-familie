@@ -5,7 +5,8 @@ let db: DatabaseSync | null = null;
 
 export function getDb(): DatabaseSync {
   if (!db) {
-    db = new DatabaseSync(join(process.cwd(), 'essensplan.db'));
+    const dbPath = process.env.DB_PATH ?? join(process.cwd(), 'essensplan.db');
+    db = new DatabaseSync(dbPath);
     db.exec('PRAGMA foreign_keys = ON;');
     // Migration: Spalten hinzufügen falls noch nicht vorhanden
     try { db.exec("ALTER TABLE settings ADD COLUMN shopping_date TEXT"); } catch { /* bereits vorhanden */ }

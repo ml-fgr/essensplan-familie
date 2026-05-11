@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import bcrypt from 'bcryptjs';
 
-const dbPath = join(process.cwd(), 'essensplan.db');
+const dbPath = process.env.DB_PATH ?? join(process.cwd(), 'essensplan.db');
 
 if (existsSync(dbPath)) {
   console.log('Datenbank existiert bereits, überspringe Init.');
