@@ -21,7 +21,7 @@ export async function GET() {
 
   try {
     const res = await fetch(
-      `https://raw.githubusercontent.com/${repo}/main/package.json`,
+      `https://raw.githubusercontent.com/${repo}/main/package.json?t=${Date.now()}`,
       { cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`GitHub antwortet nicht (HTTP ${res.status})`);
