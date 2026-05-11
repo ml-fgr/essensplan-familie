@@ -7,8 +7,9 @@ export function getDb(): DatabaseSync {
   if (!db) {
     db = new DatabaseSync(join(process.cwd(), 'essensplan.db'));
     db.exec('PRAGMA foreign_keys = ON;');
-    // Migration: shopping_date Spalte hinzufügen falls noch nicht vorhanden
+    // Migration: Spalten hinzufügen falls noch nicht vorhanden
     try { db.exec("ALTER TABLE settings ADD COLUMN shopping_date TEXT"); } catch { /* bereits vorhanden */ }
+    try { db.exec("ALTER TABLE settings ADD COLUMN shops TEXT"); } catch { /* bereits vorhanden */ }
   }
   return db;
 }

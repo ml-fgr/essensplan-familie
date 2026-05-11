@@ -23,11 +23,13 @@ function formatDateDE(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
+const ALL_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka'];
+
 type UpdateStatus = 'idle' | 'checking' | 'up-to-date' | 'available' | 'updating' | 'done' | 'error' | 'not-configured';
 
-interface Props { city: string; zipCount: number; shoppingDate: string; localVersion: string; }
+interface Props { city: string; zipCount: number; shoppingDate: string; localVersion: string; shops: string[]; }
 
-export default function SettingsClient({ city: initialCity, zipCount: initialZipCount, shoppingDate: initialDate, localVersion }: Props) {
+export default function SettingsClient({ city: initialCity, zipCount: initialZipCount, shoppingDate: initialDate, localVersion, shops: initialShops }: Props) {
   const router = useRouter();
   const [city, setCity] = useState(initialCity);
   const [zipCount, setZipCount] = useState(initialZipCount);
@@ -35,6 +37,9 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [pwMsg, setPwMsg] = useState('');
+  const [shops, setShops] = useState<string[]>(initialShops);
+  const [savingShops, setSavingShops] = useState(false);
+  const [shopsMsg, setShopsMsg] = useState('');
   const [savingCity, setSavingCity] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
   const [dateMsg, setDateMsg] = useState('');
@@ -44,6 +49,18 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
   const [remoteVersion, setRemoteVersion] = useState('');
   const [updateLog, setUpdateLog] = useState<string[]>([]);
   const [updateError, setUpdateError] = useState('');
+
+  function toggleShop(shop: string) {
+    setShops((prev) => prev.includes(shop) ? prev.filter((s) => s !== shop) : [...prev, shop]);
+    setShopsMsg('');
+  }
+
+  async function saveShops() {
+    setSavingShops(true); setShopsMsg('');
+    await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shops }) });
+    setSavingShops(false);
+    setShopsMsg('✓ Supermärkte gespeichert');
+  }
 
   function handleCityChange(val: string) { setCity(val); setZipCount(getZipsForCity(val).length); }
 
@@ -204,6 +221,38 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
           <button className="btn-primary" onClick={saveCity} disabled={savingCity} style={{ marginTop: 10 }}>
             {savingCity ? 'Speichern…' : 'Stadt speichern'}
           </button>
+        </div>
+
+        {/* ── Supermärkte ── */}
+        <div>
+          <div className="section-label" style={{ padding: 0, marginBottom: 4 }}>Supermärkte</div>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 10px' }}>Nur Angebote dieser Märkte werden beim Refresh berücksichtigt.</p>
+          <div className="card" style={{ padding: '4px 0' }}>
+            {ALL_SHOPS.map((shop, i) => (
+              <label
+                key={shop}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '13px 16px',
+                  borderBottom: i < ALL_SHOPS.length - 1 ? '0.5px solid rgba(31,42,34,0.07)' : 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={shops.includes(shop)}
+                  onChange={() => toggleShop(shop)}
+                  style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 15, fontWeight: 500 }}>{shop}</span>
+              </label>
+            ))}
+          </div>
+          {shopsMsg && <p style={{ fontSize: 12.5, color: 'var(--accent)', margin: '6px 0 0' }}>{shopsMsg}</p>}
+          <button className="btn-primary" onClick={saveShops} disabled={savingShops || shops.length === 0} style={{ marginTop: 10 }}>
+            {savingShops ? 'Speichern…' : 'Supermärkte speichern'}
+          </button>
+          {shops.length === 0 && <p style={{ fontSize: 12.5, color: 'var(--danger)', margin: '6px 0 0' }}>Mindestens einen Markt auswählen.</p>}
         </div>
 
         {/* ── Passwort ── */}

@@ -4,6 +4,25 @@ import { getDb } from '@/lib/db';
 const CLIENT_KEY = process.env.MARKTGURU_CLIENT_KEY ?? '';
 const API_KEY = process.env.MARKTGURU_API_KEY ?? '';
 
+const DEFAULT_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka'];
+
+// Marktguru-Shopnamen enthalten oft Großschreibung oder Varianten — case-insensitiver Vergleich
+const SHOP_KEYWORDS: Record<string, string> = {
+  'Aldi Süd': 'aldi süd',
+  'Aldi Nord': 'aldi nord',
+  'Rewe': 'rewe',
+  'Edeka': 'edeka',
+};
+
+function shopAllowed(shopName: string, allowedShops: string[]): boolean {
+  if (allowedShops.length === 0) return true;
+  const lower = shopName.toLowerCase();
+  return allowedShops.some((s) => {
+    const keyword = SHOP_KEYWORDS[s] ?? s.toLowerCase();
+    return lower.includes(keyword);
+  });
+}
+
 function getMondayISO(): string {
   const d = new Date();
   const day = d.getDay();
@@ -12,7 +31,7 @@ function getMondayISO(): string {
   return d.toISOString().split('T')[0];
 }
 
-async function fetchOffers(zipCode: string, query: string): Promise<{ shop: string; label: string }[]> {
+async function fetchOffers(zipCode: string, query: string, allowedShops: string[]): Promise<{ shop: string; label: string }[]> {
   try {
     const url = `https://api.marktguru.de/api/v1/offers/search?as=web&limit=50&zipCode=${encodeURIComponent(zipCode)}&q=${encodeURIComponent(query)}`;
     const res = await fetch(url, {
@@ -24,10 +43,13 @@ async function fetchOffers(zipCode: string, query: string): Promise<{ shop: stri
     });
     if (!res.ok) return [];
     const data = await res.json() as { results?: { advertisers?: { name: string }[]; description?: string }[] };
-    return (data.results ?? []).slice(0, 3).map((r) => ({
-      shop: r.advertisers?.[0]?.name ?? 'Unbekannt',
-      label: r.description ?? query,
-    }));
+    return (data.results ?? [])
+      .filter((r) => shopAllowed(r.advertisers?.[0]?.name ?? '', allowedShops))
+      .slice(0, 3)
+      .map((r) => ({
+        shop: r.advertisers?.[0]?.name ?? 'Unbekannt',
+        label: r.description ?? query,
+      }));
   } catch {
     return [];
   }
@@ -35,8 +57,10 @@ async function fetchOffers(zipCode: string, query: string): Promise<{ shop: stri
 
 export async function POST() {
   const db = getDb();
-  const settings = db.prepare('SELECT zip_codes FROM settings WHERE id = 1').get() as { zip_codes: string } | undefined;
+  const settings = db.prepare('SELECT zip_codes, shops FROM settings WHERE id = 1').get() as { zip_codes: string; shops: string | null } | undefined;
   if (!settings) return NextResponse.json({ error: 'Keine Einstellungen gefunden' }, { status: 500 });
+
+  const allowedShops: string[] = settings.shops ? JSON.parse(settings.shops) : DEFAULT_SHOPS;
 
   const zipCodes: string[] = JSON.parse(settings.zip_codes);
   const primaryZip = zipCodes[0];
@@ -53,7 +77,7 @@ export async function POST() {
 
     await Promise.all(
       ingredients.map(async (ing) => {
-        const results = await fetchOffers(primaryZip, ing);
+        const results = await fetchOffers(primaryZip, ing, allowedShops);
         if (results.length > 0) {
           hits++;
           offerResults.push({ ingredient: ing, shop: results[0].shop, label: results[0].label });
