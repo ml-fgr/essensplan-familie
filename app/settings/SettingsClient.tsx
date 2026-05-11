@@ -280,7 +280,7 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
       </div>
 
       <style>{`
-        input[type="date"] { appearance: auto; -webkit-appearance: auto; }
+        input[type="date"] { appearance: auto; -webkit-appearance: auto; width: 100%; min-width: 0; max-width: 100%; }
         input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
         @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
       `}</style>
