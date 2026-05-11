@@ -49,6 +49,12 @@ export async function POST() {
 
     const steps: string[] = [];
 
+    steps.push('▶ Lokale Änderungen verwerfen...');
+    execSync(`git -c "safe.directory=${appDir}" reset --hard HEAD`, {
+      cwd: appDir, encoding: 'utf8', timeout: 15_000, stdio: 'pipe',
+    });
+    steps.push('Lokale Änderungen verworfen.');
+
     steps.push('▶ git pull...');
     const gitOut = execSync(`git -c "safe.directory=${appDir}" pull`, {
       cwd: appDir, encoding: 'utf8', timeout: 60_000, stdio: 'pipe',
