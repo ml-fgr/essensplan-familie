@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const res = await fetch(
       `https://raw.githubusercontent.com/${repo}/main/package.json`,
-      { headers: { 'Cache-Control': 'no-cache' }, next: { revalidate: 0 } }
+      { cache: 'no-store' }
     );
     if (!res.ok) throw new Error(`GitHub antwortet nicht (HTTP ${res.status})`);
 
