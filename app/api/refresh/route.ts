@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db';
 const CLIENT_KEY = process.env.MARKTGURU_CLIENT_KEY ?? '';
 const API_KEY = process.env.MARKTGURU_API_KEY ?? '';
 
-const DEFAULT_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka'];
+const DEFAULT_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka', 'Lidl', 'Kaufland', 'Penny', 'Netto'];
 
 // Marktguru-Shopnamen enthalten oft Großschreibung oder Varianten — case-insensitiver Vergleich
 const SHOP_KEYWORDS: Record<string, string> = {
@@ -12,6 +12,10 @@ const SHOP_KEYWORDS: Record<string, string> = {
   'Aldi Nord': 'aldi nord',
   'Rewe': 'rewe',
   'Edeka': 'edeka',
+  'Lidl': 'lidl',
+  'Kaufland': 'kaufland',
+  'Penny': 'penny',
+  'Netto': 'netto',
 };
 
 function shopAllowed(shopName: string, allowedShops: string[]): boolean {

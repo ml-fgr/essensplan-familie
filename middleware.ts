@@ -12,6 +12,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /api/update darf mit gültigem UPDATE_SECRET-Token ohne Session aufgerufen werden.
+  // Die Route selbst prüft das Token — Middleware lässt es durch.
+  if (pathname === '/api/update') {
+    const token = req.nextUrl.searchParams.get('token');
+    const secret = process.env.UPDATE_SECRET;
+    if (secret && token === secret) {
+      return NextResponse.next();
+    }
+  }
+
   const hasCookie = !!req.cookies.get('essensplan_sid')?.value;
   if (!hasCookie) {
     const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';

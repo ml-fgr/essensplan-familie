@@ -23,7 +23,7 @@ function formatDateDE(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-const ALL_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka'];
+const ALL_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka', 'Lidl', 'Kaufland', 'Penny', 'Netto'];
 
 type UpdateStatus = 'idle' | 'checking' | 'up-to-date' | 'available' | 'updating' | 'done' | 'error' | 'not-configured';
 
