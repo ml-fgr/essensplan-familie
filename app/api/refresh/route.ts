@@ -57,7 +57,13 @@ async function fetchOffers(zipCode: string, query: string, allowedShops: string[
 
 export async function POST() {
   const db = getDb();
-  const settings = db.prepare('SELECT zip_codes, shops FROM settings WHERE id = 1').get() as { zip_codes: string; shops: string | null } | undefined;
+  const settings = db.prepare('SELECT zip_codes, shops, shopping_date, refresh_count, last_refresh_date FROM settings WHERE id = 1').get() as {
+    zip_codes: string;
+    shops: string | null;
+    shopping_date: string | null;
+    refresh_count: number | null;
+    last_refresh_date: string | null;
+  } | undefined;
   if (!settings) return NextResponse.json({ error: 'Keine Einstellungen gefunden' }, { status: 500 });
 
   const allowedShops: string[] = settings.shops ? JSON.parse(settings.shops) : DEFAULT_SHOPS;
@@ -65,10 +71,17 @@ export async function POST() {
   const zipCodes: string[] = JSON.parse(settings.zip_codes);
   const primaryZip = zipCodes[0];
 
+  // Zufallsfaktor: 0 beim ersten Refresh des Tages, danach steigend bis max 0.9
+  const shoppingDate = settings.shopping_date ?? new Date().toISOString().split('T')[0];
+  const isNewDate = settings.last_refresh_date !== shoppingDate;
+  const prevCount = settings.refresh_count ?? 0;
+  const refreshCount = isNewDate ? 1 : prevCount + 1;
+  const randomFactor = refreshCount === 1 ? 0 : Math.min(0.9, (refreshCount - 1) * 0.2);
+
   const recipes = db.prepare('SELECT * FROM recipes').all() as { id: number; name: string; ingredients: string }[];
   if (recipes.length === 0) return NextResponse.json({ error: 'Keine Rezepte vorhanden' }, { status: 400 });
 
-  const scored: { recipe: (typeof recipes)[0]; score: number; offers: { ingredient: string; shop: string; label: string }[] }[] = [];
+  const scored: { recipe: (typeof recipes)[0]; score: number; finalScore: number; offers: { ingredient: string; shop: string; label: string }[] }[] = [];
 
   for (const recipe of recipes) {
     const ingredients: string[] = JSON.parse(recipe.ingredients);
@@ -85,14 +98,22 @@ export async function POST() {
       })
     );
 
+    const score = ingredients.length > 0 ? hits / ingredients.length : 0;
+    // Angebots-Score mit zunehmendem Zufallsanteil mischen
+    const finalScore = score * (1 - randomFactor) + Math.random() * randomFactor;
+
     scored.push({
       recipe,
-      score: ingredients.length > 0 ? hits / ingredients.length : 0,
+      score,
+      finalScore,
       offers: offerResults.slice(0, 5),
     });
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.finalScore - a.finalScore);
+
+  // Refresh-Zähler für diesen Einkaufstag speichern
+  db.prepare('UPDATE settings SET refresh_count = ?, last_refresh_date = ? WHERE id = 1').run(refreshCount, shoppingDate);
 
   const weekStart = getMondayISO();
   db.prepare('DELETE FROM weekplan WHERE week_start = ?').run(weekStart);

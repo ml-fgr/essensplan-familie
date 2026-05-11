@@ -12,6 +12,8 @@ export function getDb(): DatabaseSync {
     try { db.exec("ALTER TABLE settings ADD COLUMN shopping_date TEXT"); } catch { /* bereits vorhanden */ }
     try { db.exec("ALTER TABLE settings ADD COLUMN shops TEXT"); } catch { /* bereits vorhanden */ }
     try { db.exec("ALTER TABLE settings ADD COLUMN family_name TEXT"); } catch { /* bereits vorhanden */ }
+    try { db.exec("ALTER TABLE settings ADD COLUMN refresh_count INTEGER DEFAULT 0"); } catch { /* bereits vorhanden */ }
+    try { db.exec("ALTER TABLE settings ADD COLUMN last_refresh_date TEXT"); } catch { /* bereits vorhanden */ }
   }
   return db;
 }
