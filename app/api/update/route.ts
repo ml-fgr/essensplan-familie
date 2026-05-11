@@ -50,16 +50,13 @@ export async function POST() {
     const steps: string[] = [];
 
     steps.push('▶ Lokale Änderungen verwerfen...');
-    execSync(`git -c "safe.directory=${appDir}" reset --hard HEAD`, {
+    execSync(`git -c "safe.directory=${appDir}" fetch origin`, {
+      cwd: appDir, encoding: 'utf8', timeout: 30_000, stdio: 'pipe',
+    });
+    execSync(`git -c "safe.directory=${appDir}" reset --hard origin/main`, {
       cwd: appDir, encoding: 'utf8', timeout: 15_000, stdio: 'pipe',
     });
-    steps.push('Lokale Änderungen verworfen.');
-
-    steps.push('▶ git pull...');
-    const gitOut = execSync(`git -c "safe.directory=${appDir}" pull`, {
-      cwd: appDir, encoding: 'utf8', timeout: 60_000, stdio: 'pipe',
-    }).trim();
-    steps.push(gitOut || 'Bereits aktuell.');
+    steps.push('Auf Stand von GitHub zurückgesetzt.');
 
     steps.push('▶ npm install...');
     run('npm install');
