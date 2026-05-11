@@ -208,7 +208,7 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
         <div>
           <div className="section-label" style={{ padding: 0, marginBottom: 4 }}>Einkaufstag</div>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 10px' }}>Angebote werden für diesen Tag geprüft. Fallback ist heute.</p>
-          <input className="input" type="date" value={shoppingDate} min={today} onChange={(e) => { setShoppingDate(e.target.value || today); setDateMsg(''); }} style={{ cursor: 'pointer' }} />
+          <input className="input" type="date" value={shoppingDate} min={today} onChange={(e) => { setShoppingDate(e.target.value || today); setDateMsg(''); }} style={{ cursor: 'pointer', width: '100%', boxSizing: 'border-box' }} />
           {dateMsg && <p style={{ fontSize: 12.5, color: 'var(--accent)', margin: '6px 0 0' }}>{dateMsg}</p>}
           <button className="btn-primary" onClick={saveShoppingDate} disabled={savingDate} style={{ marginTop: 10 }}>
             {savingDate ? 'Speichern…' : 'Einkaufstag speichern'}
@@ -280,7 +280,7 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
       </div>
 
       <style>{`
-        input[type="date"] { appearance: auto; -webkit-appearance: auto; width: 100%; min-width: 0; max-width: 100%; }
+        input[type="date"] { appearance: auto; -webkit-appearance: auto; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
         input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
         @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
       `}</style>
