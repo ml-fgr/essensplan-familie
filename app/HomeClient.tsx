@@ -241,13 +241,7 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
   }
   function onTouchEnd() {
     dragRef.current.dragging = false;
-    if (dragX < -SWIPE_THRESHOLD) {
-      setDragX(-120);
-      // openRowId wird extern gesetzt — wir simulieren es über isOpen-Logik nicht,
-      // stattdessen bleibt der visuelle Zustand lokal und wir nutzen onToggle
-    } else {
-      setDragX(0);
-    }
+    setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -120 : 0));
   }
 
   // Maus-Drag
@@ -299,6 +293,7 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
             transform: `translateX(${currentX}px)`,
             transition: dragRef.current.dragging ? 'none' : 'transform 0.2s',
             userSelect: 'none', cursor: 'pointer',
+            touchAction: 'pan-y',
           }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
