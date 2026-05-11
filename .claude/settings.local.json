@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(cp CLAUDE.md /tmp/CLAUDE.md.bak)",
+      "Bash(npx create-next-app@latest . --typescript --app --tailwind --eslint --no-git --yes)"
+    ]
+  }
+}
