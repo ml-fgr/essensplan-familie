@@ -8,7 +8,8 @@ interface Props {
   restRecipes: Recipe[];
 }
 
-const SWIPE_THRESHOLD = 60;
+const SWIPE_THRESHOLD = 70;
+const MAX_DRAG = 160;
 
 export default function HomeClient({ weekplan, restRecipes }: Props) {
   const router = useRouter();
@@ -227,44 +228,67 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
   const ingredients: string[] = JSON.parse(row.ingredients);
   const offers: { ingredient: string }[] = row.offers ? JSON.parse(row.offers) : [];
 
-  const dragRef = useRef<{ startX: number; startY: number; dragging: boolean }>({ startX: 0, startY: 0, dragging: false });
+  const rowRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; axis: 'h' | 'v' | null; active: boolean }>({
+    startX: 0, startY: 0, axis: null, active: false,
+  });
   const [dragX, setDragX] = useState(0);
   const isDragging = useRef(false);
 
-  // Touch
-  function onTouchStart(e: React.TouchEvent) {
-    dragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, dragging: true };
-    setDragX(0);
-  }
-  function onTouchMove(e: React.TouchEvent) {
-    if (!dragRef.current.dragging) return;
-    const dx = e.touches[0].clientX - dragRef.current.startX;
-    const dy = Math.abs(e.touches[0].clientY - dragRef.current.startY);
-    if (dy > 15) { dragRef.current.dragging = false; setDragX(0); return; }
-    if (dx < 0) setDragX(Math.max(dx, -120));
-  }
-  function onTouchEnd() {
-    dragRef.current.dragging = false;
-    setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -120 : 0));
-  }
+  // Native Touch-Listener: Achsen-Lock + e.preventDefault() nur bei horizontaler Bewegung
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
 
-  // Maus-Drag
+    function onStart(e: TouchEvent) {
+      dragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: true };
+      isDragging.current = false;
+      setDragX(0);
+    }
+    function onMove(e: TouchEvent) {
+      if (!dragRef.current.active) return;
+      const dx = e.touches[0].clientX - dragRef.current.startX;
+      const dy = e.touches[0].clientY - dragRef.current.startY;
+      if (dragRef.current.axis === null) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        dragRef.current.axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+      }
+      if (dragRef.current.axis === 'v') { dragRef.current.active = false; setDragX(0); return; }
+      e.preventDefault();
+      if (dx < 0) { isDragging.current = true; setDragX(Math.max(dx, -MAX_DRAG)); }
+    }
+    function onEnd() {
+      dragRef.current.active = false;
+      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
+      setTimeout(() => { isDragging.current = false; }, 50);
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, []);
+
+  // Maus-Drag (Desktop)
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    setDragX(0);
     isDragging.current = false;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, dragging: true };
-
+    const startX = e.clientX;
+    dragRef.current.active = true;
     function onMove(ev: MouseEvent) {
-      const dx = ev.clientX - dragRef.current.startX;
+      const dx = ev.clientX - startX;
       if (Math.abs(dx) > 5) isDragging.current = true;
-      if (dx < 0) setDragX(Math.max(dx, -120));
+      if (dx < 0) setDragX(Math.max(dx, -MAX_DRAG));
     }
     function onUp() {
-      dragRef.current.dragging = false;
-      setDragX((prev) => {
-        if (prev < -SWIPE_THRESHOLD) return -120;
-        return 0;
-      });
+      dragRef.current.active = false;
+      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
+      setTimeout(() => { isDragging.current = false; }, 50);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     }
@@ -272,36 +296,29 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
     window.addEventListener('mouseup', onUp);
   }, []);
 
-  // ⋯-Klick → Chips unterhalb (kein Slide); Drag → Slide-Reveal
-  const currentX = dragX;
-
   return (
     <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(31,42,34,0.08)', opacity }}>
-      {/* Slide-Container — overflow:hidden nur hier, damit Chips unten sichtbar bleiben */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Action-Layer hinter der Zeile (nur per Drag sichtbar) */}
+        {/* Action-Layer — je 80px = 160px gesamt, passt exakt zum MAX_DRAG */}
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
-          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', padding: '0 18px', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: 80, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
             Aus Plan
           </button>
-          <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '0 18px', fontWeight: 600, fontSize: 13, cursor: 'pointer', borderRadius: '0 14px 14px 0', whiteSpace: 'nowrap' }}>
+          <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 80, fontWeight: 600, fontSize: 13, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
             Löschen
           </button>
         </div>
 
         {/* Haupt-Zeile */}
         <div
+          ref={rowRef}
           style={{
             display: 'flex', alignItems: 'center', padding: '13px 12px 13px 16px', gap: 10,
             background: 'var(--bg-elevated)',
-            transform: `translateX(${currentX}px)`,
-            transition: dragRef.current.dragging ? 'none' : 'transform 0.2s',
+            transform: `translateX(${dragX}px)`,
+            transition: dragRef.current.active ? 'none' : 'transform 0.2s',
             userSelect: 'none', cursor: 'pointer',
-            touchAction: 'pan-y',
           }}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
           onMouseDown={onMouseDown}
           onClick={(e) => { if (!isDragging.current && dragX === 0) onInfo(e); }}
         >
