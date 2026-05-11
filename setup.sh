@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# setup.sh — Einmalig auf dem Server ausführen nach dem ersten Upload / nach Updates
-# Liest APP_DIR und andere Einstellungen aus .env.local und richtet alles ein.
+# setup.sh — Einmalig auf dem Server ausführen bei Erstinstallation.
+# Liest alle Einstellungen aus .env.local.
 
 set -e
 
@@ -15,33 +15,49 @@ fi
 get_env() { grep "^${1}=" .env.local | cut -d'=' -f2- | tr -d '"' | tr -d "'"; }
 
 APP_DIR=$(get_env APP_DIR)
+DB_PATH=$(get_env DB_PATH)
+PORT=$(get_env PORT)
 PM2_APP_NAME=$(get_env PM2_APP_NAME)
 SERVICE_NAME=$(get_env SERVICE_NAME)
 DOMAIN=$(get_env DOMAIN)
 
+PORT="${PORT:-3000}"
+
 if [ -z "$APP_DIR" ]; then
   echo "FEHLER: APP_DIR ist nicht in .env.local gesetzt."
-  echo "Beispiel: APP_DIR=/var/customers/webs/FGR053/essensplan.loecke.eu"
   exit 1
 fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Essensplaner Setup"
-echo "  App-Verzeichnis: $APP_DIR"
+echo "  App-Verzeichnis : $APP_DIR"
+echo "  Port            : $PORT"
+echo "  Datenbank       : ${DB_PATH:-$APP_DIR/essensplan.db (Fallback)}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ── npm install + build ────────────────────────────────────────────────────
+# ── DB-Verzeichnis anlegen falls DB_PATH gesetzt ───────────────────────────
+if [ -n "$DB_PATH" ]; then
+  DB_DIR=$(dirname "$DB_PATH")
+  mkdir -p "$DB_DIR"
+  echo "✓ Datenbank-Verzeichnis: $DB_DIR"
+fi
+
+# ── npm install ────────────────────────────────────────────────────────────
 echo "▶ npm install..."
 npm install --production=false
 
 # ── Datenbank initialisieren (muss vor dem Build passieren) ───────────────
-if [ ! -f "essensplan.db" ]; then
-  echo "▶ Datenbank initialisieren..."
+ACTUAL_DB="${DB_PATH:-$APP_DIR/essensplan.db}"
+if [ ! -f "$ACTUAL_DB" ]; then
+  echo "▶ Datenbank initialisieren: $ACTUAL_DB"
   npx tsx scripts/init-db.ts || echo "⚠ DB-Init übersprungen (ggf. manuell ausführen)"
+else
+  echo "✓ Datenbank vorhanden: $ACTUAL_DB"
 fi
 
+# ── Build ──────────────────────────────────────────────────────────────────
 echo "▶ npm run build..."
 npm run build
 
@@ -53,15 +69,16 @@ if [ -n "$SERVICE_NAME" ] && command -v systemctl &>/dev/null; then
   echo "▶ systemd-Service schreiben: $SERVICE_FILE"
   cat > "$SERVICE_FILE" <<UNIT
 [Unit]
-Description=Essensplaner Familie
+Description=Essensplaner Familie ($SERVICE_NAME)
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=${APP_DIR}
-ExecStart=${NODE_BIN} node_modules/.bin/next start -p 3000
+ExecStart=${NODE_BIN} node_modules/.bin/next start
 Restart=always
 RestartSec=5
+Environment=NODE_ENV=production
 EnvironmentFile=${APP_DIR}/.env.local
 StandardOutput=journal
 StandardError=journal
@@ -87,26 +104,22 @@ else
   echo ""
   echo "⚠ Kein Dienst-Manager konfiguriert."
   echo "  Setze SERVICE_NAME oder PM2_APP_NAME in .env.local"
-  echo "  oder starte manuell mit: npm start"
 fi
 
-# ── Apache-Config ausgeben ─────────────────────────────────────────────────
-DOMAIN_HINT="${DOMAIN:-deine-domain.de}"
+# ── .htaccess anlegen falls nicht vorhanden ────────────────────────────────
+if [ ! -f ".htaccess" ] && [ -n "$DOMAIN" ]; then
+  echo ""
+  echo "▶ .htaccess anlegen (Port $PORT)..."
+  cat > .htaccess <<HTACCESS
+DirectoryIndex disabled
+RewriteEngine On
+RewriteRule ^(.*)$ http://127.0.0.1:${PORT}/\$1 [P,L]
+RequestHeader set X-Forwarded-Proto "https"
+HTACCESS
+  echo "✓ .htaccess erstellt für Port $PORT"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Apache VirtualHost (falls noch nicht eingerichtet)"
+echo "  ✓ Setup abgeschlossen."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-cat <<APACHE
-
-<VirtualHost *:80>
-    ServerName ${DOMAIN_HINT}
-    ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:3000/
-    ProxyPassReverse / http://127.0.0.1:3000/
-</VirtualHost>
-
-APACHE
-echo "Falls du Let's Encrypt nutzt:"
-echo "  certbot --apache -d ${DOMAIN_HINT}"
-echo ""
-echo "✓ Setup abgeschlossen."

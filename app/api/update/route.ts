@@ -36,45 +36,77 @@ export async function GET() {
   }
 }
 
-// POST: führt das Update auf dem Server aus (git pull → npm install → build → restart)
 export async function POST() {
   const appDir = process.env.APP_DIR ?? process.cwd();
+  const dbPath = process.env.DB_PATH ?? null;
   const pm2Name = process.env.PM2_APP_NAME;
   const serviceName = process.env.SERVICE_NAME;
 
   try {
-    const { execSync } = await import('child_process');
+    const { execSync, execFileSync } = await import('child_process');
+    const { existsSync, copyFileSync } = await import('fs');
+    const { join } = await import('path');
+
     const run = (cmd: string) =>
       execSync(cmd, { cwd: appDir, encoding: 'utf8', timeout: 300_000, stdio: 'pipe' });
 
     const steps: string[] = [];
 
-    steps.push('▶ Lokale Änderungen verwerfen...');
-    execSync(`git -c "safe.directory=${appDir}" fetch origin`, {
+    // ── Schritt 1: Datenbank sichern ──────────────────────────────────────
+    const actualDbPath = dbPath ?? join(appDir, 'essensplan.db');
+    if (existsSync(actualDbPath)) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupPath = `${actualDbPath}.backup-${ts}`;
+      try {
+        copyFileSync(actualDbPath, backupPath);
+        steps.push(`✓ Datenbank gesichert: ${backupPath}`);
+      } catch {
+        steps.push('⚠ DB-Backup fehlgeschlagen — Update wird trotzdem fortgesetzt.');
+      }
+    } else {
+      steps.push('⚠ Keine Datenbank gefunden — Neuinstallation?');
+    }
+
+    // ── Schritt 2: Code aktualisieren ─────────────────────────────────────
+    steps.push('▶ Code aktualisieren…');
+    execFileSync('git', ['-c', `safe.directory=${appDir}`, 'fetch', 'origin'], {
       cwd: appDir, encoding: 'utf8', timeout: 30_000, stdio: 'pipe',
     });
-    execSync(`git -c "safe.directory=${appDir}" reset --hard origin/main`, {
+    execFileSync('git', ['-c', `safe.directory=${appDir}`, 'reset', '--hard', 'origin/main'], {
       cwd: appDir, encoding: 'utf8', timeout: 15_000, stdio: 'pipe',
     });
-    steps.push('Auf Stand von GitHub zurückgesetzt.');
+    steps.push('✓ Code auf aktuellen Stand gebracht.');
 
-    steps.push('▶ npm install...');
+    // ── Schritt 3: Abhängigkeiten ─────────────────────────────────────────
+    steps.push('▶ npm install…');
     run('npm install');
-    steps.push('Abhängigkeiten installiert.');
+    steps.push('✓ Abhängigkeiten installiert.');
 
-    steps.push('▶ npm run build...');
+    // ── Schritt 4: Build ──────────────────────────────────────────────────
+    steps.push('▶ Build…');
     run('npm run build');
-    steps.push('Build erfolgreich.');
+    steps.push('✓ Build erfolgreich.');
 
-    steps.push('▶ Neustart...');
+    // ── Schritt 5: Neustart ───────────────────────────────────────────────
+    steps.push('▶ Neustart…');
     let restarted = false;
     if (pm2Name) {
-      try { run(`pm2 restart ${pm2Name}`); steps.push(`pm2 restart "${pm2Name}" OK.`); restarted = true; } catch { /* nächste Option */ }
+      try {
+        run(`pm2 restart ${pm2Name}`);
+        steps.push(`✓ pm2 "${pm2Name}" neu gestartet.`);
+        restarted = true;
+      } catch { /* weiter */ }
     }
     if (!restarted && serviceName) {
-      try { execSync(`systemctl restart ${serviceName}`, { encoding: 'utf8', timeout: 15_000 }); steps.push(`systemctl restart "${serviceName}" OK.`); restarted = true; } catch { /* nächste Option */ }
+      try {
+        execSync(`systemctl restart ${serviceName}`, { encoding: 'utf8', timeout: 15_000 });
+        steps.push(`✓ systemctl "${serviceName}" neu gestartet.`);
+        restarted = true;
+      } catch { /* weiter */ }
     }
-    if (!restarted) steps.push('⚠ Kein Neustart-Dienst konfiguriert. Bitte manuell neu starten.');
+    if (!restarted) {
+      steps.push('⚠ Kein Dienst konfiguriert — bitte manuell neu starten.');
+    }
 
     return NextResponse.json({ ok: true, steps });
   } catch (err: unknown) {
