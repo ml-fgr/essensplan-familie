@@ -3,7 +3,7 @@ import { getIronSession } from 'iron-session';
 
 const PUBLIC_PATHS = ['/login', '/api/login', '/robots.txt', '/_next', '/favicon.ico'];
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
@@ -17,7 +17,11 @@ export async function proxy(req: NextRequest) {
   });
 
   if (!session.authenticated) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    // X-Forwarded-Host nutzen falls hinter einem Proxy (Apache)
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const host = forwardedHost || req.headers.get('host') || '';
+    const proto = req.headers.get('x-forwarded-proto') || 'https';
+    return NextResponse.redirect(`${proto}://${host}/login`);
   }
 
   return res;
