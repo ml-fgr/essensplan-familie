@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Recipe, WeekplanRow } from './page';
 
@@ -18,6 +18,10 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
   const [deleteConfirm, setDeleteConfirm] = useState<{ weekplanId?: number; recipeId: number; name: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshStep, setRefreshStep] = useState(0);
+
+  // Wenn der Server nach router.refresh() neue Daten liefert, lokalen State synchronisieren
+  useEffect(() => { setLocalWeekplan(weekplan); }, [weekplan]);
+  useEffect(() => { setLocalRest(restRecipes); }, [restRecipes]);
 
   const confirmed = localWeekplan.filter((r) => r.status === 'confirmed');
   const suggestions = localWeekplan.filter((r) => r.status === 'suggestion');
