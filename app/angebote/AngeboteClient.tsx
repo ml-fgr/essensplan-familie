@@ -24,7 +24,7 @@ function formatPrice(p: number) {
   return p.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
-export default function AngeboteClient({ offers, error }: { offers: Offer[]; error?: string }) {
+export default function AngeboteClient({ offers, error, allowedShops }: { offers: Offer[]; error?: string; allowedShops: string[] }) {
   const router = useRouter();
   const [activeShop, setActiveShop] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -33,6 +33,11 @@ export default function AngeboteClient({ offers, error }: { offers: Offer[]; err
     const s = [...new Set(offers.map((o) => o.shop))].sort();
     return s;
   }, [offers]);
+
+  const shopsWithoutOffers = useMemo(() => {
+    const foundShops = new Set(offers.map((o) => o.shop.toLowerCase()));
+    return allowedShops.filter((s) => !foundShops.has(s.toLowerCase()));
+  }, [offers, allowedShops]);
 
   const categories = useMemo(() => {
     const src = activeShop ? offers.filter((o) => o.shop === activeShop) : offers;
@@ -94,6 +99,12 @@ export default function AngeboteClient({ offers, error }: { offers: Offer[]; err
       {error && (
         <div style={{ margin: '0 16px 12px', padding: '10px 14px', background: '#fff3cd', borderRadius: 10, fontSize: 13, color: '#856404' }}>
           {error}
+        </div>
+      )}
+
+      {shopsWithoutOffers.length > 0 && (
+        <div style={{ margin: '0 16px 10px', padding: '9px 13px', background: 'var(--accent-soft-faint)', borderRadius: 10, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+          ℹ️ {shopsWithoutOffers.join(', ')} {shopsWithoutOffers.length === 1 ? 'ist' : 'sind'} in deiner Region nicht bei Marktguru vertreten – keine Angebote verfügbar.
         </div>
       )}
 

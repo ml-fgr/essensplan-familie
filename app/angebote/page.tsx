@@ -66,11 +66,11 @@ export default async function AngebotePage() {
   const row = db.prepare('SELECT zip_codes, shops FROM settings WHERE id = 1').get() as
     { zip_codes: string; shops: string | null } | undefined;
 
-  if (!row) return <AngeboteClient offers={[]} error="Einstellungen fehlen" />;
+  if (!row) return <AngeboteClient offers={[]} allowedShops={[]} error="Einstellungen fehlen" />;
 
   const zipCodes: string[] = JSON.parse(row.zip_codes);
   const primaryZip = zipCodes[0];
-  if (!primaryZip) return <AngeboteClient offers={[]} error="Keine Postleitzahl konfiguriert" />;
+  if (!primaryZip) return <AngeboteClient offers={[]} allowedShops={[]} error="Keine Postleitzahl konfiguriert" />;
 
   const allowedShops: string[] = row.shops
     ? JSON.parse(row.shops)
@@ -110,5 +110,5 @@ export default async function AngebotePage() {
     error = 'Angebote konnten nicht geladen werden';
   }
 
-  return <AngeboteClient offers={offers} error={error} />;
+  return <AngeboteClient offers={offers} error={error} allowedShops={allowedShops} />;
 }
