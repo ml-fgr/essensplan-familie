@@ -88,26 +88,30 @@ export async function POST() {
     steps.push('✓ Build erfolgreich.');
 
     // ── Schritt 5: Neustart ───────────────────────────────────────────────
+    // Neustart wird NACH dem Senden der Response ausgelöst (detached),
+    // damit systemd nicht den laufenden Prozess killt bevor die Antwort rausgeht.
     steps.push('▶ Neustart…');
-    let restarted = false;
+    let restartCmd: string | null = null;
+
     if (pm2Name) {
       try {
         run(`pm2 restart ${pm2Name}`);
         steps.push(`✓ pm2 "${pm2Name}" neu gestartet.`);
-        restarted = true;
-      } catch { /* weiter */ }
+      } catch { /* weiter mit systemctl */ }
     }
-    if (!restarted && serviceName) {
-      try {
-        execSync(`systemctl restart ${serviceName}`, { encoding: 'utf8', timeout: 15_000, stdio: 'pipe' });
-        steps.push(`✓ systemctl "${serviceName}" neu gestartet.`);
-        restarted = true;
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        steps.push(`⚠ systemctl restart fehlgeschlagen: ${msg.slice(0, 200)}`);
-      }
+    if (!restartCmd && serviceName) {
+      restartCmd = `systemctl restart ${serviceName}`;
     }
-    if (!restarted) {
+    if (restartCmd) {
+      // Wir lösen den Restart 1 Sekunde nach der HTTP-Response aus.
+      // Der Prozess (=dieser Next.js-Server) wird danach von systemd beendet.
+      const { spawn } = await import('child_process');
+      spawn('sh', ['-c', `sleep 1 && ${restartCmd}`], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+      steps.push(`✓ Neustart von "${serviceName ?? pm2Name}" eingeplant — App startet gleich neu.`);
+    } else if (!pm2Name) {
       steps.push('⚠ Kein Dienst konfiguriert (SERVICE_NAME oder PM2_APP_NAME fehlt in .env.local).');
     }
 
