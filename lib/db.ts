@@ -16,5 +16,6 @@ export function getDb(): DatabaseSync {
 // node:sqlite gibt Objekte mit null-Prototype zurück — Next.js kann diese
 // nicht an Client-Komponenten übergeben. Diese Funktion wandelt sie um.
 export function plain<T>(value: T): T {
+  if (value == null) return value;
   return JSON.parse(JSON.stringify(value));
 }
