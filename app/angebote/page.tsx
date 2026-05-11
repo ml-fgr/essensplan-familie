@@ -51,6 +51,14 @@ function shopAllowed(shopName: string, allowedShops: string[]): boolean {
   });
 }
 
+function isValidOnDate(validityDates: { from?: string; to?: string }[] | undefined, date: string): boolean {
+  if (!validityDates?.length) return true;
+  const { from, to } = validityDates[0];
+  if (from && date < from.slice(0, 10)) return false;
+  if (to && date > to.slice(0, 10)) return false;
+  return true;
+}
+
 async function searchOffers(zip: string, query: string): Promise<RawOffer[]> {
   const res = await fetch(
     `https://api.marktguru.de/api/v1/offers/search?as=web&limit=50&zipCode=${zip}&q=${encodeURIComponent(query)}`,
@@ -63,8 +71,8 @@ async function searchOffers(zip: string, query: string): Promise<RawOffer[]> {
 
 export default async function AngebotePage() {
   const db = getDb();
-  const row = db.prepare('SELECT zip_codes, shops FROM settings WHERE id = 1').get() as
-    { zip_codes: string; shops: string | null } | undefined;
+  const row = db.prepare('SELECT zip_codes, shops, shopping_date FROM settings WHERE id = 1').get() as
+    { zip_codes: string; shops: string | null; shopping_date: string | null } | undefined;
 
   if (!row) return <AngeboteClient offers={[]} allowedShops={[]} error="Einstellungen fehlen" />;
 
@@ -75,6 +83,8 @@ export default async function AngebotePage() {
   const allowedShops: string[] = row.shops
     ? JSON.parse(row.shops)
     : ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka', 'Lidl', 'Kaufland', 'Penny', 'Netto'];
+
+  const shoppingDate = row.shopping_date ?? new Date().toISOString().split('T')[0];
 
   let offers: Offer[] = [];
   let error: string | undefined;
@@ -93,6 +103,7 @@ export default async function AngebotePage() {
         seen.add(r.id);
         const shop = r.advertisers?.[0]?.name ?? '';
         if (!shopAllowed(shop, allowedShops)) continue;
+        if (!isValidOnDate(r.validityDates, shoppingDate)) continue;
         offers.push({
           id: r.id,
           name: r.product?.name ?? r.description ?? '',

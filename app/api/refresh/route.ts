@@ -35,7 +35,18 @@ function getMondayISO(): string {
   return d.toISOString().split('T')[0];
 }
 
-async function fetchOffers(zipCode: string, query: string, allowedShops: string[]): Promise<{ shop: string; label: string }[]> {
+function isValidOnDate(
+  validityDates: { from?: string; to?: string }[] | undefined,
+  date: string
+): boolean {
+  if (!validityDates?.length) return true; // kein Datum → nicht filtern
+  const { from, to } = validityDates[0];
+  if (from && date < from.slice(0, 10)) return false;
+  if (to && date > to.slice(0, 10)) return false;
+  return true;
+}
+
+async function fetchOffers(zipCode: string, query: string, allowedShops: string[], shoppingDate: string): Promise<{ shop: string; label: string }[]> {
   try {
     const url = `https://api.marktguru.de/api/v1/offers/search?as=web&limit=50&zipCode=${encodeURIComponent(zipCode)}&q=${encodeURIComponent(query)}`;
     const res = await fetch(url, {
@@ -46,9 +57,10 @@ async function fetchOffers(zipCode: string, query: string, allowedShops: string[
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
-    const data = await res.json() as { results?: { advertisers?: { name: string }[]; description?: string }[] };
+    const data = await res.json() as { results?: { advertisers?: { name: string }[]; description?: string; validityDates?: { from?: string; to?: string }[] }[] };
     return (data.results ?? [])
       .filter((r) => shopAllowed(r.advertisers?.[0]?.name ?? '', allowedShops))
+      .filter((r) => isValidOnDate(r.validityDates, shoppingDate))
       .slice(0, 3)
       .map((r) => ({
         shop: r.advertisers?.[0]?.name ?? 'Unbekannt',
@@ -94,7 +106,7 @@ export async function POST() {
 
     await Promise.all(
       ingredients.map(async (ing) => {
-        const results = await fetchOffers(primaryZip, ing, allowedShops);
+        const results = await fetchOffers(primaryZip, ing, allowedShops, shoppingDate);
         if (results.length > 0) {
           hits++;
           offerResults.push({ ingredient: ing, shop: results[0].shop, label: results[0].label });
