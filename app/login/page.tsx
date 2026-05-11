@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function LoginPage() {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, remember }),
     });
     if (res.ok) {
       router.push('/');
@@ -44,6 +45,17 @@ export default function LoginPage() {
             autoFocus
             autoComplete="current-password"
           />
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '2px 0' }}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
+            />
+            <span style={{ fontSize: 14, color: 'var(--muted)' }}>Passwort merken (2 Monate)</span>
+          </label>
+
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
           <button className="btn-primary" type="submit" disabled={loading || !password}>
             {loading ? 'Anmelden…' : 'Anmelden'}

@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db';
 import { getSession } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
+  const { password, remember } = await req.json();
   const db = getDb();
   const row = db.prepare('SELECT password_hash FROM settings WHERE id = 1').get() as { password_hash: string } | undefined;
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falsches Passwort' }, { status: 401 });
   }
 
-  const session = await getSession();
+  const session = await getSession(!!remember);
   session.authenticated = true;
   await session.save();
 
