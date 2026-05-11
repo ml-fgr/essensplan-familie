@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getDb, plain } from '@/lib/db';
 import { parseSteps } from '@/lib/steps';
 import { notFound } from 'next/navigation';

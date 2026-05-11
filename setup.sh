@@ -36,14 +36,14 @@ echo ""
 echo "▶ npm install..."
 npm install --production=false
 
-echo "▶ npm run build..."
-npm run build
-
-# ── Datenbank initialisieren (falls noch nicht vorhanden) ──────────────────
+# ── Datenbank initialisieren (muss vor dem Build passieren) ───────────────
 if [ ! -f "essensplan.db" ]; then
   echo "▶ Datenbank initialisieren..."
-  node scripts/init-db.mjs 2>/dev/null || npx tsx scripts/init-db.ts 2>/dev/null || echo "⚠ DB-Init übersprungen (ggf. manuell ausführen)"
+  npx tsx scripts/init-db.ts || echo "⚠ DB-Init übersprungen (ggf. manuell ausführen)"
 fi
+
+echo "▶ npm run build..."
+npm run build
 
 # ── systemd-Service einrichten ─────────────────────────────────────────────
 if [ -n "$SERVICE_NAME" ] && command -v systemctl &>/dev/null; then

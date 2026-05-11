@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { redirect } from 'next/navigation';
 import { getDb, plain } from '@/lib/db';
 import HomeClient from './HomeClient';
