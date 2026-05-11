@@ -14,6 +14,13 @@ export function getDb(): DatabaseSync {
     try { db.exec("ALTER TABLE settings ADD COLUMN family_name TEXT"); } catch { /* bereits vorhanden */ }
     try { db.exec("ALTER TABLE settings ADD COLUMN refresh_count INTEGER DEFAULT 0"); } catch { /* bereits vorhanden */ }
     try { db.exec("ALTER TABLE settings ADD COLUMN last_refresh_date TEXT"); } catch { /* bereits vorhanden */ }
+    db.exec(`CREATE TABLE IF NOT EXISTS kinderplan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      added_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS kinderplan_recipe_unique ON kinderplan(recipe_id)"); } catch { /* bereits vorhanden */ }
   }
   return db;
 }

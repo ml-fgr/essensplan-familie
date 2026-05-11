@@ -1,28 +1,30 @@
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Recipe, WeekplanRow } from './page';
+import type { Recipe, WeekplanRow, KinderplanRow } from './page';
 
 interface Props {
   weekplan: WeekplanRow[];
   restRecipes: Recipe[];
+  kinderplan: KinderplanRow[];
 }
 
 const SWIPE_THRESHOLD = 70;
 const MAX_DRAG = 200;
 
-export default function HomeClient({ weekplan, restRecipes }: Props) {
+export default function HomeClient({ weekplan, restRecipes, kinderplan }: Props) {
   const router = useRouter();
   const [localWeekplan, setLocalWeekplan] = useState(weekplan);
   const [localRest, setLocalRest] = useState(restRecipes);
+  const [localKinderplan, setLocalKinderplan] = useState(kinderplan);
   const [openRowId, setOpenRowId] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ weekplanId?: number; recipeId: number; name: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshStep, setRefreshStep] = useState(0);
 
-  // Wenn der Server nach router.refresh() neue Daten liefert, lokalen State synchronisieren
   useEffect(() => { setLocalWeekplan(weekplan); }, [weekplan]);
   useEffect(() => { setLocalRest(restRecipes); }, [restRecipes]);
+  useEffect(() => { setLocalKinderplan(kinderplan); }, [kinderplan]);
 
   const confirmed = localWeekplan.filter((r) => r.status === 'confirmed');
   const suggestions = localWeekplan.filter((r) => r.status === 'suggestion');
@@ -48,6 +50,28 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
       setLocalRest((prev) => prev.filter((r) => r.id !== recipe.id));
       router.refresh();
     }
+  }
+
+  const kinderplanRecipeIds = new Set(localKinderplan.map((k) => k.recipe_id));
+
+  async function addToKinderplan(recipeId: number, recipeName: string, ingredients: string) {
+    if (localKinderplan.length >= 7) return;
+    const res = await fetch('/api/kinderplan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipe_id: recipeId }),
+    });
+    if (res.ok) {
+      const data = await res.json() as { id: number; recipe_id: number; position: number };
+      setLocalKinderplan((prev) => [...prev, { id: data.id, recipe_id: recipeId, name: recipeName, ingredients, added_at: new Date().toISOString() }]);
+    }
+    setOpenRowId(null);
+  }
+
+  async function removeFromKinderplan(kinderplanId: number) {
+    await fetch(`/api/kinderplan/${kinderplanId}`, { method: 'DELETE' });
+    setLocalKinderplan((prev) => prev.filter((k) => k.id !== kinderplanId));
+    setOpenRowId(null);
   }
 
   async function deleteRecipe(recipeId: number, weekplanId?: number) {
@@ -119,6 +143,33 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
         </div>
       )}
 
+      {/* Kinderplan */}
+      <div style={{ marginTop: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 6px' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)' }}>
+            🧒 Kinderplan · {localKinderplan.length}/7
+          </span>
+        </div>
+        <div style={{ margin: '0 12px', borderRadius: 14, overflow: 'hidden', boxShadow: 'inset 0 0 0 0.5px rgba(31,42,34,0.08)', background: 'var(--bg-elevated)', border: '1.5px dashed var(--accent-soft)' }}>
+          {localKinderplan.length === 0 ? (
+            <div style={{ padding: '14px 16px', fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+              Kein Kindergericht – bei Vorschlägen oder Rezepten „Zum Kinderplan" wählen.
+            </div>
+          ) : (
+            localKinderplan.map((row, i) => (
+              <KinderplanRow
+                key={row.id}
+                row={row}
+                isLast={i === localKinderplan.length - 1}
+                isOpen={openRowId === -2000 - row.id}
+                onToggle={(e) => { e.stopPropagation(); setOpenRowId((p) => p === -2000 - row.id ? null : -2000 - row.id); }}
+                onRemove={(e) => { e.stopPropagation(); removeFromKinderplan(row.id); }}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
       {/* KI-Vorschläge */}
       {suggestions.length > 0 && (
         <div style={{ marginTop: 20 }}>
@@ -136,6 +187,8 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
                 onRemove={(e) => { e.stopPropagation(); removeFromPlan(row.id); }}
                 onDelete={(e) => { e.stopPropagation(); setDeleteConfirm({ weekplanId: row.id, recipeId: row.recipe_id, name: row.name }); }}
                 onInfo={(e) => { e.stopPropagation(); router.push(`/recipe/${row.recipe_id}`); }}
+                onKinderplan={!kinderplanRecipeIds.has(row.recipe_id) && localKinderplan.length < 7 ? (e) => { e.stopPropagation(); addToKinderplan(row.recipe_id, row.name, row.ingredients); } : undefined}
+                inKinderplan={kinderplanRecipeIds.has(row.recipe_id)}
               />
             ))}
           </div>
@@ -160,6 +213,8 @@ export default function HomeClient({ weekplan, restRecipes }: Props) {
                   onAdd={(e) => { e.stopPropagation(); addToPlan(recipe); }}
                   onEdit={(e) => { e.stopPropagation(); router.push(`/recipe/${recipe.id}`); }}
                   onDelete={(e) => { e.stopPropagation(); setDeleteConfirm({ recipeId: recipe.id, name: recipe.name }); }}
+                  onKinderplan={!kinderplanRecipeIds.has(recipe.id) && localKinderplan.length < 7 ? (e) => { e.stopPropagation(); addToKinderplan(recipe.id, recipe.name, recipe.ingredients); } : undefined}
+                  inKinderplan={kinderplanRecipeIds.has(recipe.id)}
                 />
               );
             })}
@@ -216,7 +271,7 @@ const REFRESH_STEPS = ['Lade Postleitzahlen…', 'Frage Marktguru-API ab…', 'B
 function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
 /* ─── Shared Swipe-Logik (Hook für SwipeRow + RestRow) ─── */
-function useSwipeGesture() {
+function useSwipeGesture(maxDrag = MAX_DRAG) {
   const rowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; axis: 'h' | 'v' | null; active: boolean }>({
     startX: 0, startY: 0, axis: null, active: false,
@@ -242,11 +297,11 @@ function useSwipeGesture() {
       }
       if (dragRef.current.axis === 'v') { dragRef.current.active = false; setDragX(0); return; }
       e.preventDefault();
-      if (dx < 0) { isDragging.current = true; setDragX(Math.max(dx, -MAX_DRAG)); }
+      if (dx < 0) { isDragging.current = true; setDragX(Math.max(dx, -maxDrag)); }
     }
     function onEnd() {
       dragRef.current.active = false;
-      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
+      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -maxDrag : 0));
       setTimeout(() => { isDragging.current = false; }, 50);
     }
     el.addEventListener('touchstart', onStart, { passive: true });
@@ -257,7 +312,7 @@ function useSwipeGesture() {
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);
     };
-  }, []);
+  }, [maxDrag]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -268,18 +323,18 @@ function useSwipeGesture() {
     function onMoveMouse(ev: MouseEvent) {
       const dx = ev.clientX - startX;
       if (Math.abs(dx) > 5) isDragging.current = true;
-      if (dx < 0) setDragX(Math.max(dx, -MAX_DRAG));
+      if (dx < 0) setDragX(Math.max(dx, -maxDrag));
     }
     function onUpMouse() {
       dragRef.current.active = false;
-      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
+      setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -maxDrag : 0));
       setTimeout(() => { isDragging.current = false; }, 50);
       window.removeEventListener('mousemove', onMoveMouse);
       window.removeEventListener('mouseup', onUpMouse);
     }
     window.addEventListener('mousemove', onMoveMouse);
     window.addEventListener('mouseup', onUpMouse);
-  }, []);
+  }, [maxDrag]);
 
   return { rowRef, dragRef, dragX, isDragging, onMouseDown };
 }
@@ -294,19 +349,27 @@ interface SwipeRowProps {
   onRemove: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onInfo: (e: React.MouseEvent) => void;
+  onKinderplan?: (e: React.MouseEvent) => void;
+  inKinderplan?: boolean;
 }
 
-function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, onInfo }: SwipeRowProps) {
+function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, onInfo, onKinderplan, inKinderplan }: SwipeRowProps) {
   const ingredients: string[] = JSON.parse(row.ingredients);
   const offers: { ingredient: string }[] = row.offers ? JSON.parse(row.offers) : [];
-  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture();
+  const maxDrag = onKinderplan ? 270 : 200;
+  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture(maxDrag);
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(31,42,34,0.08)', opacity }}>
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
-          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-            Aus Plan entfernen
+          {onKinderplan && (
+            <button onClick={onKinderplan} style={{ background: '#5b8dd9', color: 'white', border: 'none', width: 100, fontWeight: 600, fontSize: 11, cursor: 'pointer', lineHeight: 1.3 }}>
+              🧒 Zum{'\n'}Kinderplan
+            </button>
+          )}
+          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: onKinderplan ? 100 : 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            Aus Plan
           </button>
           <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 70, fontWeight: 600, fontSize: 12, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
             Löschen
@@ -331,6 +394,7 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
           {row.score !== null && (
             <span className="badge">{offers.length}/{ingredients.length}</span>
           )}
+          {inKinderplan && <span style={{ fontSize: 11, color: '#5b8dd9', fontWeight: 600 }}>🧒</span>}
           <button
             onClick={onToggle}
             title="Aktionen"
@@ -342,6 +406,8 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
       </div>
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' }}>
+          {onKinderplan && <ActionChip label="🧒 Zum Kinderplan" color="#5b8dd9" bg="#eef3fd" border="#c5d5f5" onClick={onKinderplan} />}
+          {inKinderplan && !onKinderplan && <span style={{ fontSize: 12, color: '#5b8dd9', padding: '6px 4px', alignSelf: 'center' }}>🧒 Im Kinderplan</span>}
           <ActionChip label="Aus Plan entfernen" color="#a06010" bg="#fff3e0" border="#f5d9a8" onClick={onRemove} />
           <ActionChip label="Löschen" color="var(--danger)" bg="#fdf0ee" border="#f5ccc5" onClick={onDelete} />
         </div>
@@ -360,17 +426,25 @@ interface RestRowProps {
   onAdd: (e: React.MouseEvent) => void;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
+  onKinderplan?: (e: React.MouseEvent) => void;
+  inKinderplan?: boolean;
 }
 
-function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit, onDelete }: RestRowProps) {
-  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture();
+function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit, onDelete, onKinderplan, inKinderplan }: RestRowProps) {
+  const maxDrag = onKinderplan ? 270 : 200;
+  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture(maxDrag);
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(31,42,34,0.08)' }}>
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
-          <button onClick={onAdd} style={{ background: 'var(--accent)', color: 'white', border: 'none', width: 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-            Zu Plan hinzu
+          {onKinderplan && (
+            <button onClick={onKinderplan} style={{ background: '#5b8dd9', color: 'white', border: 'none', width: 100, fontWeight: 600, fontSize: 11, cursor: 'pointer', lineHeight: 1.3 }}>
+              🧒 Zum{'\n'}Kinderplan
+            </button>
+          )}
+          <button onClick={onAdd} style={{ background: 'var(--accent)', color: 'white', border: 'none', width: onKinderplan ? 100 : 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            Zu Plan
           </button>
           <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 70, fontWeight: 600, fontSize: 12, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
             Löschen
@@ -392,6 +466,7 @@ function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit,
             <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.name}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ingredients.length} Zutaten — tippen zum Hinzufügen</div>
           </div>
+          {inKinderplan && <span style={{ fontSize: 11, color: '#5b8dd9', fontWeight: 600, opacity: 0.7 }}>🧒</span>}
           <button
             onClick={onToggle}
             title="Aktionen"
@@ -403,9 +478,67 @@ function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit,
       </div>
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 12px', flexWrap: 'wrap' }}>
+          {onKinderplan && <ActionChip label="🧒 Zum Kinderplan" color="#5b8dd9" bg="#eef3fd" border="#c5d5f5" onClick={onKinderplan} />}
+          {inKinderplan && !onKinderplan && <span style={{ fontSize: 12, color: '#5b8dd9', padding: '6px 4px', alignSelf: 'center' }}>🧒 Im Kinderplan</span>}
           <ActionChip label="+ Zum Plan" color="var(--accent)" bg="var(--accent-soft-faint)" border="var(--accent-soft)" onClick={onAdd} />
           <ActionChip label="Bearbeiten" color="var(--fg)" bg="var(--chip)" border="transparent" onClick={onEdit} />
           <ActionChip label="Löschen" color="var(--danger)" bg="#fdf0ee" border="#f5ccc5" onClick={onDelete} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── KinderplanRow ─── */
+interface KinderplanRowProps {
+  row: KinderplanRow;
+  isLast: boolean;
+  isOpen: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+  onRemove: (e: React.MouseEvent) => void;
+}
+
+function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove }: KinderplanRowProps) {
+  const ingredients: string[] = JSON.parse(row.ingredients);
+  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture(220);
+
+  return (
+    <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(91,141,217,0.15)' }}>
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
+          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: 150, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            Aus Kinderplan
+          </button>
+          <div style={{ width: 70, background: 'transparent' }} />
+        </div>
+        <div
+          ref={rowRef}
+          style={{
+            display: 'flex', alignItems: 'center', padding: '13px 12px 13px 16px', gap: 10,
+            background: 'var(--bg-elevated)',
+            transform: `translateX(${dragX}px)`,
+            transition: dragRef.current.active ? 'none' : 'transform 0.2s',
+            userSelect: 'none', cursor: 'default',
+          }}
+          onMouseDown={onMouseDown}
+          onClick={(e) => { if (isDragging.current || dragX !== 0) e.stopPropagation(); }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ingredients.length} Zutaten</div>
+          </div>
+          <button
+            onClick={onToggle}
+            title="Aktionen"
+            style={{ background: isOpen ? 'var(--chip)' : 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', borderRadius: 8, flexShrink: 0, transition: 'background 0.15s' }}
+          >
+            ⋯
+          </button>
+        </div>
+      </div>
+      {isOpen && (
+        <div style={{ display: 'flex', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' }}>
+          <ActionChip label="Aus Kinderplan entfernen" color="#a06010" bg="#fff3e0" border="#f5d9a8" onClick={onRemove} />
         </div>
       )}
     </div>

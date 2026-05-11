@@ -25,7 +25,14 @@ export default function HomePage() {
   const weekplanRecipeIds = new Set(weekplanRows.map((r) => r.recipe_id));
   const restRecipes = allRecipes.filter((r) => !weekplanRecipeIds.has(r.id));
 
-  return <HomeClient weekplan={plain(weekplanRows)} restRecipes={plain(restRecipes)} />;
+  const kinderplanRows = db.prepare(`
+    SELECT k.id, k.recipe_id, k.added_at, r.name, r.ingredients
+    FROM kinderplan k
+    JOIN recipes r ON r.id = k.recipe_id
+    ORDER BY k.position, k.added_at
+  `).all() as KinderplanRow[];
+
+  return <HomeClient weekplan={plain(weekplanRows)} restRecipes={plain(restRecipes)} kinderplan={plain(kinderplanRows)} />;
 }
 
 function getMondayISO(): string {
@@ -42,6 +49,14 @@ export interface Recipe {
   ingredients: string;
   recipe_text: string | null;
   created_at: string;
+}
+
+export interface KinderplanRow {
+  id: number;
+  recipe_id: number;
+  name: string;
+  ingredients: string;
+  added_at: string;
 }
 
 export interface WeekplanRow {
