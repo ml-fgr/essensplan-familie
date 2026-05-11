@@ -17,9 +17,9 @@ export async function middleware(req: NextRequest) {
   });
 
   if (!session.authenticated) {
-    // X-Forwarded-Host nutzen falls hinter einem Proxy (Apache)
-    const forwardedHost = req.headers.get('x-forwarded-host');
-    const host = forwardedHost || req.headers.get('host') || '';
+    // X-Forwarded-Host kann mehrere Werte haben (Apache setzt ihn ggf. doppelt)
+    const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+    const host = rawHost.split(',')[0].trim();
     const proto = req.headers.get('x-forwarded-proto') || 'https';
     return NextResponse.redirect(`${proto}://${host}/login`);
   }
