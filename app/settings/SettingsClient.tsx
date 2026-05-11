@@ -209,7 +209,7 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
           <div className="section-label" style={{ padding: 0, marginBottom: 4 }}>Einkaufstag</div>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 10px' }}>Angebote werden für diesen Tag geprüft. Fallback ist heute.</p>
           <div style={{ width: '100%', overflow: 'hidden', borderRadius: 12 }}>
-            <input type="date" value={shoppingDate} min={today} onChange={(e) => { setShoppingDate(e.target.value || today); setDateMsg(''); }} style={{ display: 'block', width: '100%', boxSizing: 'border-box', background: 'var(--bg-elevated)', border: '1.5px solid var(--accent-soft)', borderRadius: 12, padding: '12px 14px', fontSize: 15, color: 'var(--fg)', outline: 'none', cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto' }} />
+            <input type="date" value={shoppingDate} min={today} onChange={(e) => { setShoppingDate(e.target.value || today); setDateMsg(''); }} style={{ display: 'block', width: '100%', boxSizing: 'border-box', background: 'var(--bg-elevated)', border: '1.5px solid var(--accent-soft)', borderRadius: 12, padding: '12px 14px', fontSize: 15, color: 'var(--fg)', outline: 'none', cursor: 'pointer' }} />
           </div>
           {dateMsg && <p style={{ fontSize: 12.5, color: 'var(--accent)', margin: '6px 0 0' }}>{dateMsg}</p>}
           <button className="btn-primary" onClick={saveShoppingDate} disabled={savingDate} style={{ marginTop: 10 }}>
