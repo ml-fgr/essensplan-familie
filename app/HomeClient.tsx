@@ -9,7 +9,7 @@ interface Props {
 }
 
 const SWIPE_THRESHOLD = 70;
-const MAX_DRAG = 160;
+const MAX_DRAG = 200;
 
 export default function HomeClient({ weekplan, restRecipes }: Props) {
   const router = useRouter();
@@ -212,22 +212,8 @@ const REFRESH_STEPS = ['Lade Postleitzahlen…', 'Frage Marktguru-API ab…', 'B
 
 function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
-/* ─── SwipeRow: Wochenplan-Eintrag mit Touch + Maus + ⋯-Button ─── */
-interface SwipeRowProps {
-  row: WeekplanRow;
-  opacity: number;
-  isLast: boolean;
-  isOpen: boolean;
-  onToggle: (e: React.MouseEvent) => void;
-  onRemove: (e: React.MouseEvent) => void;
-  onDelete: (e: React.MouseEvent) => void;
-  onInfo: (e: React.MouseEvent) => void;
-}
-
-function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, onInfo }: SwipeRowProps) {
-  const ingredients: string[] = JSON.parse(row.ingredients);
-  const offers: { ingredient: string }[] = row.offers ? JSON.parse(row.offers) : [];
-
+/* ─── Shared Swipe-Logik (Hook für SwipeRow + RestRow) ─── */
+function useSwipeGesture() {
   const rowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; axis: 'h' | 'v' | null; active: boolean }>({
     startX: 0, startY: 0, axis: null, active: false,
@@ -235,11 +221,9 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
   const [dragX, setDragX] = useState(0);
   const isDragging = useRef(false);
 
-  // Native Touch-Listener: Achsen-Lock + e.preventDefault() nur bei horizontaler Bewegung
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
-
     function onStart(e: TouchEvent) {
       dragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, axis: null, active: true };
       isDragging.current = false;
@@ -262,7 +246,6 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
       setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
       setTimeout(() => { isDragging.current = false; }, 50);
     }
-
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
     el.addEventListener('touchend', onEnd, { passive: true });
@@ -273,43 +256,59 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
     };
   }, []);
 
-  // Maus-Drag (Desktop)
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
     setDragX(0);
     isDragging.current = false;
     const startX = e.clientX;
     dragRef.current.active = true;
-    function onMove(ev: MouseEvent) {
+    function onMoveMouse(ev: MouseEvent) {
       const dx = ev.clientX - startX;
       if (Math.abs(dx) > 5) isDragging.current = true;
       if (dx < 0) setDragX(Math.max(dx, -MAX_DRAG));
     }
-    function onUp() {
+    function onUpMouse() {
       dragRef.current.active = false;
       setDragX((prev) => (prev < -SWIPE_THRESHOLD ? -MAX_DRAG : 0));
       setTimeout(() => { isDragging.current = false; }, 50);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMoveMouse);
+      window.removeEventListener('mouseup', onUpMouse);
     }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMoveMouse);
+    window.addEventListener('mouseup', onUpMouse);
   }, []);
+
+  return { rowRef, dragRef, dragX, isDragging, onMouseDown };
+}
+
+/* ─── SwipeRow: Wochenplan-Eintrag ─── */
+interface SwipeRowProps {
+  row: WeekplanRow;
+  opacity: number;
+  isLast: boolean;
+  isOpen: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+  onRemove: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onInfo: (e: React.MouseEvent) => void;
+}
+
+function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, onInfo }: SwipeRowProps) {
+  const ingredients: string[] = JSON.parse(row.ingredients);
+  const offers: { ingredient: string }[] = row.offers ? JSON.parse(row.offers) : [];
+  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture();
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(31,42,34,0.08)', opacity }}>
       <div style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Action-Layer — je 80px = 160px gesamt, passt exakt zum MAX_DRAG */}
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
-          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: 80, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-            Aus Plan
+          <button onClick={onRemove} style={{ background: '#f0a040', color: 'white', border: 'none', width: 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            Aus Plan entfernen
           </button>
-          <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 80, fontWeight: 600, fontSize: 13, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
+          <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 70, fontWeight: 600, fontSize: 12, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
             Löschen
           </button>
         </div>
-
-        {/* Haupt-Zeile */}
         <div
           ref={rowRef}
           style={{
@@ -338,8 +337,6 @@ function SwipeRow({ row, opacity, isLast, isOpen, onToggle, onRemove, onDelete, 
           </button>
         </div>
       </div>
-
-      {/* Inline-Aktions-Chips — erscheinen unterhalb wenn ⋯ geklickt */}
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' }}>
           <ActionChip label="Aus Plan entfernen" color="#a06010" bg="#fff3e0" border="#f5d9a8" onClick={onRemove} />
@@ -363,25 +360,45 @@ interface RestRowProps {
 }
 
 function RestRow({ recipe, ingredients, isLast, isOpen, onToggle, onAdd, onEdit, onDelete }: RestRowProps) {
+  const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture();
+
   return (
     <div style={{ borderBottom: isLast ? 'none' : '0.5px solid rgba(31,42,34,0.08)' }}>
-      <div
-        style={{ opacity: 0.35, display: 'flex', alignItems: 'center', padding: '13px 12px 13px 16px', gap: 10, userSelect: 'none' }}
-      >
-        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={onAdd}>
-          <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ingredients.length} Zutaten — tippen zum Hinzufügen</div>
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'stretch' }}>
+          <button onClick={onAdd} style={{ background: 'var(--accent)', color: 'white', border: 'none', width: 130, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            Zu Plan hinzu
+          </button>
+          <button onClick={onDelete} style={{ background: 'var(--danger)', color: 'white', border: 'none', width: 70, fontWeight: 600, fontSize: 12, cursor: 'pointer', borderRadius: '0 14px 14px 0' }}>
+            Löschen
+          </button>
         </div>
-        <button
-          onClick={onToggle}
-          title="Aktionen"
-          style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', borderRadius: 8, flexShrink: 0, opacity: 1 }}
+        <div
+          ref={rowRef}
+          style={{
+            opacity: 0.35,
+            display: 'flex', alignItems: 'center', padding: '13px 12px 13px 16px', gap: 10,
+            background: 'var(--bg-elevated)',
+            transform: `translateX(${dragX}px)`,
+            transition: dragRef.current.active ? 'none' : 'transform 0.2s',
+            userSelect: 'none', cursor: 'pointer',
+          }}
+          onMouseDown={onMouseDown}
+          onClick={(e) => { if (!isDragging.current && dragX === 0) onAdd(e); }}
         >
-          ⋯
-        </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{ingredients.length} Zutaten — tippen zum Hinzufügen</div>
+          </div>
+          <button
+            onClick={onToggle}
+            title="Aktionen"
+            style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', borderRadius: 8, flexShrink: 0, opacity: 1 }}
+          >
+            ⋯
+          </button>
+        </div>
       </div>
-
-      {/* Ausgeklappte Aktionen */}
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 12px', flexWrap: 'wrap' }}>
           <ActionChip label="+ Zum Plan" color="var(--accent)" bg="var(--accent-soft-faint)" border="var(--accent-soft)" onClick={onAdd} />
