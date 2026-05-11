@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getDb } from '@/lib/db';
 import SettingsClient from './SettingsClient';
 import pkg from '../../package.json';
