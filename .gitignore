@@ -33,6 +33,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# SQLite Datenbank — enthält persönliche Daten, nie einchecken
+essensplan.db
+essensplan.db-shm
+essensplan.db-wal
+
+# Claude Code lokale Einstellungen
+.claude/
+
 # vercel
 .vercel
 
