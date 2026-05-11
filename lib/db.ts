@@ -10,6 +10,7 @@ export function getDb(): DatabaseSync {
     // Migration: Spalten hinzufügen falls noch nicht vorhanden
     try { db.exec("ALTER TABLE settings ADD COLUMN shopping_date TEXT"); } catch { /* bereits vorhanden */ }
     try { db.exec("ALTER TABLE settings ADD COLUMN shops TEXT"); } catch { /* bereits vorhanden */ }
+    try { db.exec("ALTER TABLE settings ADD COLUMN family_name TEXT"); } catch { /* bereits vorhanden */ }
   }
   return db;
 }

@@ -27,9 +27,9 @@ const ALL_SHOPS = ['Aldi Süd', 'Aldi Nord', 'Rewe', 'Edeka'];
 
 type UpdateStatus = 'idle' | 'checking' | 'up-to-date' | 'available' | 'updating' | 'done' | 'error' | 'not-configured';
 
-interface Props { city: string; zipCount: number; shoppingDate: string; localVersion: string; shops: string[]; }
+interface Props { city: string; zipCount: number; shoppingDate: string; localVersion: string; shops: string[]; familyName: string; }
 
-export default function SettingsClient({ city: initialCity, zipCount: initialZipCount, shoppingDate: initialDate, localVersion, shops: initialShops }: Props) {
+export default function SettingsClient({ city: initialCity, zipCount: initialZipCount, shoppingDate: initialDate, localVersion, shops: initialShops, familyName: initialFamilyName }: Props) {
   const router = useRouter();
   const [city, setCity] = useState(initialCity);
   const [zipCount, setZipCount] = useState(initialZipCount);
@@ -43,6 +43,9 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
   const [savingCity, setSavingCity] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
   const [dateMsg, setDateMsg] = useState('');
+  const [familyName, setFamilyName] = useState(initialFamilyName);
+  const [savingFamilyName, setSavingFamilyName] = useState(false);
+  const [familyNameMsg, setFamilyNameMsg] = useState('');
 
   // Update-State
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
@@ -53,6 +56,14 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
   function toggleShop(shop: string) {
     setShops((prev) => prev.includes(shop) ? prev.filter((s) => s !== shop) : [...prev, shop]);
     setShopsMsg('');
+  }
+
+  async function saveFamilyName() {
+    setSavingFamilyName(true); setFamilyNameMsg('');
+    await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ family_name: familyName }) });
+    setSavingFamilyName(false);
+    setFamilyNameMsg(familyName.trim() ? `✓ Angezeigt als: Für die Familie ${familyName.trim()}` : '✓ Gespeichert (kein Zusatz im Login)');
+    router.refresh();
   }
 
   async function saveShops() {
@@ -214,6 +225,17 @@ export default function SettingsClient({ city: initialCity, zipCount: initialZip
           {dateMsg && <p style={{ fontSize: 12.5, color: 'var(--accent)', margin: '6px 0 0' }}>{dateMsg}</p>}
           <button className="btn-primary" onClick={saveShoppingDate} disabled={savingDate} style={{ marginTop: 10 }}>
             {savingDate ? 'Speichern…' : 'Einkaufstag speichern'}
+          </button>
+        </div>
+
+        {/* ── Familienname ── */}
+        <div>
+          <div className="section-label" style={{ padding: 0, marginBottom: 4 }}>Familienname</div>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 10px' }}>Wird im Login-Bildschirm angezeigt: „Für die Familie …"</p>
+          <input className="input" type="text" placeholder="z.B. Müller" value={familyName} onChange={(e) => { setFamilyName(e.target.value); setFamilyNameMsg(''); }} />
+          {familyNameMsg && <p style={{ fontSize: 12.5, color: 'var(--accent)', margin: '6px 0 0' }}>{familyNameMsg}</p>}
+          <button className="btn-primary" onClick={saveFamilyName} disabled={savingFamilyName} style={{ marginTop: 10 }}>
+            {savingFamilyName ? 'Speichern…' : 'Familienname speichern'}
           </button>
         </div>
 
