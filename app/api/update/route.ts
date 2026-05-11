@@ -99,13 +99,16 @@ export async function POST() {
     }
     if (!restarted && serviceName) {
       try {
-        execSync(`systemctl restart ${serviceName}`, { encoding: 'utf8', timeout: 15_000 });
+        execSync(`systemctl restart ${serviceName}`, { encoding: 'utf8', timeout: 15_000, stdio: 'pipe' });
         steps.push(`✓ systemctl "${serviceName}" neu gestartet.`);
         restarted = true;
-      } catch { /* weiter */ }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        steps.push(`⚠ systemctl restart fehlgeschlagen: ${msg.slice(0, 200)}`);
+      }
     }
     if (!restarted) {
-      steps.push('⚠ Kein Dienst konfiguriert — bitte manuell neu starten.');
+      steps.push('⚠ Kein Dienst konfiguriert (SERVICE_NAME oder PM2_APP_NAME fehlt in .env.local).');
     }
 
     return NextResponse.json({ ok: true, steps });
