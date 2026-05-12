@@ -164,6 +164,7 @@ export default function HomeClient({ weekplan, restRecipes, kinderplan }: Props)
                 isOpen={openRowId === -2000 - row.id}
                 onToggle={(e) => { e.stopPropagation(); setOpenRowId((p) => p === -2000 - row.id ? null : -2000 - row.id); }}
                 onRemove={(e) => { e.stopPropagation(); removeFromKinderplan(row.id); }}
+                onEdit={(e) => { e.stopPropagation(); router.push(`/recipe/${row.recipe_id}`); }}
               />
             ))
           )}
@@ -496,9 +497,10 @@ interface KinderplanRowProps {
   isOpen: boolean;
   onToggle: (e: React.MouseEvent) => void;
   onRemove: (e: React.MouseEvent) => void;
+  onEdit: (e: React.MouseEvent) => void;
 }
 
-function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove }: KinderplanRowProps) {
+function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove, onEdit }: KinderplanRowProps) {
   const ingredients: string[] = JSON.parse(row.ingredients);
   const { rowRef, dragRef, dragX, isDragging, onMouseDown } = useSwipeGesture(220);
 
@@ -518,10 +520,10 @@ function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove }: KinderplanRo
             background: 'var(--bg-elevated)',
             transform: `translateX(${dragX}px)`,
             transition: dragRef.current.active ? 'none' : 'transform 0.2s',
-            userSelect: 'none', cursor: 'default',
+            userSelect: 'none', cursor: 'pointer',
           }}
           onMouseDown={onMouseDown}
-          onClick={(e) => { if (isDragging.current || dragX !== 0) e.stopPropagation(); }}
+          onClick={(e) => { if (!isDragging.current && dragX === 0) onEdit(e); }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</div>
@@ -538,6 +540,7 @@ function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove }: KinderplanRo
       </div>
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' }}>
+          <ActionChip label="Bearbeiten" color="var(--fg)" bg="var(--chip)" border="transparent" onClick={onEdit} />
           <ActionChip label="Aus Kinderplan entfernen" color="#a06010" bg="#fff3e0" border="#f5d9a8" onClick={onRemove} />
         </div>
       )}

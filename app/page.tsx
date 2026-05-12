@@ -22,15 +22,16 @@ export default function HomePage() {
 
   const allRecipes = db.prepare('SELECT * FROM recipes ORDER BY name COLLATE NOCASE').all() as Recipe[];
 
-  const weekplanRecipeIds = new Set(weekplanRows.map((r) => r.recipe_id));
-  const restRecipes = allRecipes.filter((r) => !weekplanRecipeIds.has(r.id));
-
   const kinderplanRows = db.prepare(`
     SELECT k.id, k.recipe_id, k.added_at, r.name, r.ingredients
     FROM kinderplan k
     JOIN recipes r ON r.id = k.recipe_id
     ORDER BY k.position, k.added_at
   `).all() as KinderplanRow[];
+
+  const weekplanRecipeIds = new Set(weekplanRows.map((r) => r.recipe_id));
+  const kinderplanRecipeIds = new Set(kinderplanRows.map((k) => k.recipe_id));
+  const restRecipes = allRecipes.filter((r) => !weekplanRecipeIds.has(r.id) && !kinderplanRecipeIds.has(r.id));
 
   return <HomeClient weekplan={plain(weekplanRows)} restRecipes={plain(restRecipes)} kinderplan={plain(kinderplanRows)} />;
 }
