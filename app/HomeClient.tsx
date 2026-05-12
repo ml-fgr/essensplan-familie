@@ -540,7 +540,6 @@ function KinderplanRow({ row, isLast, isOpen, onToggle, onRemove, onEdit }: Kind
       </div>
       {isOpen && (
         <div style={{ display: 'flex', gap: 8, padding: '0 12px 10px', flexWrap: 'wrap' }}>
-          <ActionChip label="Bearbeiten" color="var(--fg)" bg="var(--chip)" border="transparent" onClick={onEdit} />
           <ActionChip label="Aus Kinderplan entfernen" color="#a06010" bg="#fff3e0" border="#f5d9a8" onClick={onRemove} />
         </div>
       )}
