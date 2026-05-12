@@ -90,7 +90,10 @@ export async function POST() {
   const primaryZip = zipCodes[0];
 
   // Zufallsfaktor: 0 beim ersten Refresh des Tages, danach steigend bis max 0.9
-  const shoppingDate = settings.shopping_date ?? new Date().toISOString().split('T')[0];
+  const configuredDate = settings.shopping_date ?? new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  // Immer das spätere Datum verwenden — abgelaufene Einkaufstage nie für Angebots-Filter nutzen
+  const shoppingDate = configuredDate > today ? configuredDate : today;
   const isNewDate = settings.last_refresh_date !== shoppingDate;
   const prevCount = settings.refresh_count ?? 0;
   const refreshCount = isNewDate ? 1 : prevCount + 1;

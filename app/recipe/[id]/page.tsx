@@ -37,11 +37,16 @@ export default async function RecipeDetailPage({ params }: Props) {
   const ingredients: string[] = JSON.parse(recipe.ingredients);
   const rawOffers: { ingredient: string; shop: string; label: string; validFrom?: string; validTo?: string }[] = weekplanRow?.offers ? JSON.parse(weekplanRow.offers) : [];
 
+  // Prüfdatum: Einkaufstag oder heute — immer das spätere Datum verwenden,
+  // damit abgelaufene Angebote auch nach dem Einkaufstag korrekt als abgelaufen erscheinen.
+  const today = new Date().toISOString().split('T')[0];
+  const checkDate = shoppingDate > today ? shoppingDate : today;
+
   const offers = rawOffers.map((o) => {
     let expired = false;
     if (o.validFrom || o.validTo) {
-      if (o.validFrom && shoppingDate < o.validFrom) expired = true;
-      if (o.validTo && shoppingDate > o.validTo) expired = true;
+      if (o.validFrom && checkDate < o.validFrom) expired = true;
+      if (o.validTo && checkDate > o.validTo) expired = true;
     }
     return { ...o, expired };
   });
