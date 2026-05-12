@@ -56,6 +56,8 @@ export default function HomeClient({ weekplan, restRecipes, kinderplan }: Props)
 
   async function addToKinderplan(recipeId: number, recipeName: string, ingredients: string) {
     if (localKinderplan.length >= 7) return;
+    setLocalRest((prev) => prev.filter((r) => r.id !== recipeId));
+    setOpenRowId(null);
     const res = await fetch('/api/kinderplan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,14 +66,19 @@ export default function HomeClient({ weekplan, restRecipes, kinderplan }: Props)
     if (res.ok) {
       const data = await res.json() as { id: number; recipe_id: number; position: number };
       setLocalKinderplan((prev) => [...prev, { id: data.id, recipe_id: recipeId, name: recipeName, ingredients, added_at: new Date().toISOString() }]);
+    } else {
+      setLocalRest((prev) => [...prev, { id: recipeId, name: recipeName, ingredients, recipe_text: null, created_at: '' }].sort((a, b) => a.name.localeCompare(b.name, 'de')));
     }
-    setOpenRowId(null);
   }
 
   async function removeFromKinderplan(kinderplanId: number) {
-    await fetch(`/api/kinderplan/${kinderplanId}`, { method: 'DELETE' });
+    const kinderRow = localKinderplan.find((k) => k.id === kinderplanId);
     setLocalKinderplan((prev) => prev.filter((k) => k.id !== kinderplanId));
     setOpenRowId(null);
+    await fetch(`/api/kinderplan/${kinderplanId}`, { method: 'DELETE' });
+    if (kinderRow && !localWeekplan.some((w) => w.recipe_id === kinderRow.recipe_id)) {
+      setLocalRest((prev) => [...prev, { id: kinderRow.recipe_id, name: kinderRow.name, ingredients: kinderRow.ingredients, recipe_text: null, created_at: '' }].sort((a, b) => a.name.localeCompare(b.name, 'de')));
+    }
   }
 
   async function deleteRecipe(recipeId: number, weekplanId?: number) {
